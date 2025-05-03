@@ -1,10 +1,24 @@
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+import { AuthProvider } from "@/contexts/AuthContext";
+import { HouseholdProvider } from "@/contexts/HouseholdContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
+import Layout from "@/components/Layout";
+
+// Pages
+import Login from "@/pages/Login";
+import Signup from "@/pages/Signup";
+import Dashboard from "@/pages/Dashboard";
+import Recipes from "@/pages/Recipes";
+import Chores from "@/pages/Chores";
+import Shopping from "@/pages/Shopping";
+import Settings from "@/pages/Settings";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -13,13 +27,26 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <LanguageProvider>
+        <AuthProvider>
+          <HouseholdProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Navigate to="/login" />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/recipes" element={<Recipes />} />
+                  <Route path="/chores" element={<Chores />} />
+                  <Route path="/shopping" element={<Shopping />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </HouseholdProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

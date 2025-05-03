@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,20 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// Custom green theme colors
+				'foodish': {
+					50: '#F2FCE2',
+					100: '#E7F6E4',
+					200: '#C5E8B8',
+					300: '#9FD88C',
+					400: '#71C562',
+					500: '#4A9F41',
+					600: '#3A7E33',
+					700: '#2C6028',
+					800: '#1E401B',
+					900: '#0F200D',
+				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +98,34 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fade-in': {
+					from: {
+						opacity: '0',
+						transform: 'translateY(10px)'
+					},
+					to: {
+						opacity: '1',
+						transform: 'translateY(0)'
+					}
+				},
+				'slide-in-bottom': {
+					from: {
+						transform: 'translateY(100%)'
+					},
+					to: {
+						transform: 'translateY(0)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fade-in 0.3s ease-out',
+				'slide-in-bottom': 'slide-in-bottom 0.3s ease-out'
+			},
+			fontFamily: {
+				'sans': ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
 			}
 		}
 	},
