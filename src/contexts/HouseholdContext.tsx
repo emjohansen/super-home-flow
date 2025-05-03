@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -11,6 +10,8 @@ interface HouseholdMember {
   displayName?: string;
   email?: string;
   avatar_color?: string;
+  // Add an alias for compatibility with existing components
+  avatarColor?: string;
 }
 
 interface Household {
@@ -70,13 +71,15 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setLoading(true);
       
-      // Fetch all households the user is a member of
+      // Fetch all households the user is a member of using the new secure function
       const { data: membershipData, error: membershipError } = await supabase
-        .from('household_members')
-        .select('household_id, role')
-        .eq('user_id', currentUser.id);
+        .rpc('get_user_household_memberships', {
+          user_uuid: currentUser.id
+        });
       
-      if (membershipError) throw membershipError;
+      if (membershipError) {
+        throw membershipError;
+      }
       
       if (!membershipData || membershipData.length === 0) {
         setHouseholds([]);
@@ -124,7 +127,7 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 .from('profiles')
                 .select('display_name, email, avatar_color')
                 .eq('id', member.user_id)
-                .single();
+                .maybeSingle();
               
               if (profileError && profileError.code !== 'PGRST116') {
                 console.error('Error fetching profile:', profileError);
@@ -315,7 +318,7 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .from('profiles')
         .select('id, email, display_name, avatar_color')
         .eq('email', email)
-        .single();
+        .maybeSingle();
       
       if (userError) {
         if (userError.code === 'PGRST116') {
@@ -323,6 +326,11 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           return null;
         }
         throw userError;
+      }
+      
+      if (!userData) {
+        toast.error(`No user found with email ${email}`);
+        return null;
       }
       
       // Check if the user is already a member
@@ -352,13 +360,16 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       
       if (memberError) throw memberError;
       
+      const avatarColorValue = userData.avatar_color || '#4A9F41';
+      
       const newMember: HouseholdMember = {
         id: memberData.id,
         user_id: memberData.user_id,
         role: memberData.role,
         displayName: userData.display_name || email.split('@')[0],
         email: email,
-        avatar_color: userData.avatar_color
+        avatar_color: avatarColorValue,
+        avatarColor: avatarColorValue // Add alias for compatibility
       };
       
       // Update the households state

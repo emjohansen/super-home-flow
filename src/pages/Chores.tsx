@@ -1,358 +1,478 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter,
-  DialogTrigger
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useHousehold } from '@/contexts/HouseholdContext';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Calendar, X, RotateCw } from 'lucide-react';
-import Avatar from '@/components/Avatar';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './AuthContext';
 import { toast } from '@/components/ui/sonner';
 
-// Chore type
-type Chore = {
+interface HouseholdMember {
+  id: string;
+  user_id: string;
+  role: string;
+  displayName?: string;
+  email?: string;
+  avatar_color?: string;
+  // Add an alias for compatibility with existing components
+  avatarColor?: string;
+}
+
+interface Household {
   id: string;
   name: string;
-  assignedTo: string;
-  dueDate: string;
-  isCompleted: boolean;
-  isRecurring: boolean;
-  frequency?: 'daily' | 'weekly' | 'monthly';
-};
+  created_by: string;
+  created_at: string;
+  members: HouseholdMember[];
+}
 
-const Chores = () => {
-  const { currentHousehold } = useHousehold();
-  const { translate } = useLanguage();
-  const [chores, setChores] = useState<Chore[]>([]);
-  const [newChore, setNewChore] = useState<Partial<Chore>>({
-    name: '',
-    assignedTo: '',
-    dueDate: new Date().toISOString().split('T')[0],
-    isCompleted: false,
-    isRecurring: false,
-  });
-  const [activeTab, setActiveTab] = useState('pending');
+interface HouseholdContextType {
+  households: Household[];
+  currentHousehold: Household | null;
+  loading: boolean;
+  setCurrentHousehold: (household: Household | null) => void;
+  createHousehold: (name: string) => Promise<Household | null>;
+  updateHousehold: (id: string, name: string) => Promise<Household | null>;
+  deleteHousehold: (id: string) => Promise<boolean>;
+  addMember: (householdId: string, email: string) => Promise<HouseholdMember | null>;
+  removeMember: (householdId: string, memberId: string) => Promise<boolean>;
+  fetchHouseholds: () => Promise<void>;
+  inviteMember: (email: string, householdId: string) => Promise<HouseholdMember | null>;
+  switchHousehold: (householdId: string) => void;
+}
 
-  // Load sample chores
-  useEffect(() => {
-    // In a real app, this would fetch from a database
-    const sampleChores: Chore[] = [
-      {
-        id: '1',
-        name: 'Vacuum living room',
-        assignedTo: currentHousehold?.members[0]?.id || '',
-        dueDate: '2025-05-05',
-        isCompleted: false,
-        isRecurring: true,
-        frequency: 'weekly',
-      },
-      {
-        id: '2',
-        name: 'Clean bathroom',
-        assignedTo: currentHousehold?.members[0]?.id || '',
-        dueDate: '2025-05-06',
-        isCompleted: false,
-        isRecurring: true,
-        frequency: 'weekly',
-      },
-      {
-        id: '3',
-        name: 'Take out trash',
-        assignedTo: currentHousehold?.members[0]?.id || '',
-        dueDate: '2025-05-04',
-        isCompleted: true,
-        isRecurring: true,
-        frequency: 'weekly',
-      },
-    ];
-    
-    setChores(sampleChores);
-  }, [currentHousehold]);
+const HouseholdContext = createContext<HouseholdContextType>({
+  households: [],
+  currentHousehold: null,
+  loading: true,
+  setCurrentHousehold: () => {},
+  createHousehold: async () => null,
+  updateHousehold: async () => null,
+  deleteHousehold: async () => false,
+  addMember: async () => null,
+  removeMember: async () => false,
+  fetchHouseholds: async () => {},
+  inviteMember: async () => null,
+  switchHousehold: () => {},
+});
 
-  // Filter chores based on tab
-  const filteredChores = chores.filter(chore => {
-    return activeTab === 'completed' ? chore.isCompleted : !chore.isCompleted;
-  });
-  
-  // Create a new chore
-  const handleCreateChore = () => {
-    if (!newChore.name || !newChore.assignedTo) {
-      toast.error('Please fill all required fields');
+export const useHousehold = () => useContext(HouseholdContext);
+
+export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [households, setHouseholds] = useState<Household[]>([]);
+  const [currentHousehold, setCurrentHousehold] = useState<Household | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { currentUser } = useAuth();
+
+  const fetchHouseholds = async () => {
+    if (!currentUser) {
+      setHouseholds([]);
+      setCurrentHousehold(null);
+      setLoading(false);
       return;
     }
-    
-    const chore: Chore = {
-      id: Math.random().toString(36).substring(2, 9),
-      name: newChore.name,
-      assignedTo: newChore.assignedTo,
-      dueDate: newChore.dueDate || new Date().toISOString().split('T')[0],
-      isCompleted: false,
-      isRecurring: !!newChore.isRecurring,
-      frequency: newChore.frequency,
-    };
-    
-    setChores([...chores, chore]);
-    setNewChore({
-      name: '',
-      assignedTo: '',
-      dueDate: new Date().toISOString().split('T')[0],
-      isCompleted: false,
-      isRecurring: false,
-    });
-    
-    toast.success('Chore created successfully');
+
+    try {
+      setLoading(true);
+      
+      // Fetch all households the user is a member of using the new secure function
+      const { data: membershipData, error: membershipError } = await supabase
+        .rpc('get_user_household_memberships', {
+          user_uuid: currentUser.id
+        });
+      
+      if (membershipError) {
+        throw membershipError;
+      }
+      
+      if (!membershipData || membershipData.length === 0) {
+        setHouseholds([]);
+        setCurrentHousehold(null);
+        setLoading(false);
+        return;
+      }
+      
+      const householdIds = membershipData.map(m => m.household_id);
+      
+      // Fetch the households
+      const { data: householdsData, error: householdsError } = await supabase
+        .from('households')
+        .select('*')
+        .in('id', householdIds);
+      
+      if (householdsError) throw householdsError;
+      
+      if (!householdsData) {
+        setHouseholds([]);
+        setCurrentHousehold(null);
+        setLoading(false);
+        return;
+      }
+      
+      // For each household, fetch all members
+      const fetchedHouseholds: Household[] = await Promise.all(
+        householdsData.map(async (household) => {
+          // Get membership data
+          const { data: members, error: membersError } = await supabase
+            .from('household_members')
+            .select(`
+              id, 
+              user_id,
+              role
+            `)
+            .eq('household_id', household.id);
+          
+          if (membersError) throw membersError;
+          
+          // Now for each member, get their profile data
+          const formattedMembers: HouseholdMember[] = await Promise.all(
+            (members || []).map(async (member) => {
+              const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('display_name, email, avatar_color')
+                .eq('id', member.user_id)
+                .maybeSingle();
+              
+              if (profileError && profileError.code !== 'PGRST116') {
+                console.error('Error fetching profile:', profileError);
+              }
+              
+              const avatarColorValue = profileData?.avatar_color || '#4A9F41';
+              
+              return {
+                id: member.id,
+                user_id: member.user_id,
+                role: member.role,
+                displayName: profileData?.display_name || 'Unknown',
+                email: profileData?.email,
+                avatar_color: avatarColorValue,
+                avatarColor: avatarColorValue // Add alias for compatibility
+              };
+            })
+          );
+          
+          return {
+            ...household,
+            members: formattedMembers
+          };
+        })
+      );
+      
+      setHouseholds(fetchedHouseholds);
+      
+      // If there's at least one household, set it as current
+      if (fetchedHouseholds.length > 0 && !currentHousehold) {
+        setCurrentHousehold(fetchedHouseholds[0]);
+      } else if (currentHousehold) {
+        // Update current household data if it's already set
+        const updated = fetchedHouseholds.find(h => h.id === currentHousehold.id);
+        if (updated) {
+          setCurrentHousehold(updated);
+        } else if (fetchedHouseholds.length > 0) {
+          // Current household no longer exists, select the first one
+          setCurrentHousehold(fetchedHouseholds[0]);
+        } else {
+          setCurrentHousehold(null);
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('Error fetching households:', error);
+      toast.error(`Failed to fetch households: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
-  
-  // Toggle chore completion
-  const toggleChoreCompletion = (id: string) => {
-    setChores(chores.map(chore => 
-      chore.id === id ? { ...chore, isCompleted: !chore.isCompleted } : chore
-    ));
+
+  // Fetch households whenever the user changes
+  useEffect(() => {
+    fetchHouseholds();
+  }, [currentUser]);
+
+  // Function to switch the current household
+  const switchHousehold = (householdId: string) => {
+    const household = households.find(h => h.id === householdId);
+    if (household) {
+      setCurrentHousehold(household);
+    }
+  };
+
+  const createHousehold = async (name: string): Promise<Household | null> => {
+    if (!currentUser) return null;
     
-    const chore = chores.find(c => c.id === id);
-    toast.success(chore?.isCompleted ? `${chore.name} marked as pending` : `${chore?.name} completed`);
+    try {
+      // Create household
+      const { data, error } = await supabase
+        .from('households')
+        .insert([{ name, created_by: currentUser.id }])
+        .select('*')
+        .single();
+      
+      if (error) throw error;
+      
+      if (!data) return null;
+      
+      // When we insert a household, the trigger automatically adds the creator as a member,
+      // so we need to fetch the member data
+      const { data: memberData, error: memberError } = await supabase
+        .from('household_members')
+        .select('*')
+        .eq('household_id', data.id)
+        .eq('user_id', currentUser.id)
+        .single();
+      
+      if (memberError) throw memberError;
+      
+      const newHousehold: Household = {
+        ...data,
+        members: [{
+          id: memberData.id,
+          user_id: memberData.user_id,
+          role: memberData.role,
+          displayName: currentUser.user_metadata.display_name || currentUser.email || 'Unknown',
+          email: currentUser.email,
+          avatar_color: currentUser.user_metadata.avatar_color,
+          avatarColor: currentUser.user_metadata.avatar_color
+        }]
+      };
+      
+      setHouseholds(prevHouseholds => [...prevHouseholds, newHousehold]);
+      setCurrentHousehold(newHousehold);
+      toast.success(`Created household "${name}"`);
+      
+      return newHousehold;
+    } catch (error: any) {
+      console.error('Error creating household:', error);
+      toast.error(`Failed to create household: ${error.message}`);
+      return null;
+    }
   };
-  
-  // Delete chore
-  const deleteChore = (id: string) => {
-    setChores(chores.filter(chore => chore.id !== id));
-    toast.success('Chore deleted');
+
+  const updateHousehold = async (id: string, name: string): Promise<Household | null> => {
+    if (!currentUser) return null;
+    
+    try {
+      const { data, error } = await supabase
+        .from('households')
+        .update({ name })
+        .eq('id', id)
+        .eq('created_by', currentUser.id)  // Only creator can update
+        .select('*')
+        .single();
+      
+      if (error) throw error;
+      
+      if (!data) return null;
+      
+      const updatedHousehold = households.find(h => h.id === id);
+      
+      if (updatedHousehold) {
+        const updated = { ...updatedHousehold, name };
+        
+        setHouseholds(prevHouseholds => 
+          prevHouseholds.map(h => h.id === id ? updated : h)
+        );
+        
+        if (currentHousehold?.id === id) {
+          setCurrentHousehold(updated);
+        }
+        
+        toast.success(`Updated household name to "${name}"`);
+        return updated;
+      }
+      
+      return null;
+    } catch (error: any) {
+      console.error('Error updating household:', error);
+      toast.error(`Failed to update household: ${error.message}`);
+      return null;
+    }
   };
-  
-  // Get member by ID
-  const getMemberById = (id: string) => {
-    return currentHousehold?.members.find(member => member.id === id);
+
+  const deleteHousehold = async (id: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    
+    try {
+      const { error } = await supabase
+        .from('households')
+        .delete()
+        .eq('id', id)
+        .eq('created_by', currentUser.id);  // Only creator can delete
+      
+      if (error) throw error;
+      
+      setHouseholds(prevHouseholds => prevHouseholds.filter(h => h.id !== id));
+      
+      if (currentHousehold?.id === id) {
+        // If we deleted the current household, select another one if available
+        const nextHousehold = households.find(h => h.id !== id);
+        setCurrentHousehold(nextHousehold || null);
+      }
+      
+      toast.success('Household deleted');
+      return true;
+    } catch (error: any) {
+      console.error('Error deleting household:', error);
+      toast.error(`Failed to delete household: ${error.message}`);
+      return false;
+    }
+  };
+
+  const addMember = async (householdId: string, email: string): Promise<HouseholdMember | null> => {
+    if (!currentUser) return null;
+    
+    try {
+      // First find the user by email
+      const { data: userData, error: userError } = await supabase
+        .from('profiles')
+        .select('id, email, display_name, avatar_color')
+        .eq('email', email)
+        .maybeSingle();
+      
+      if (userError) {
+        if (userError.code === 'PGRST116') {
+          toast.error(`No user found with email ${email}`);
+          return null;
+        }
+        throw userError;
+      }
+      
+      if (!userData) {
+        toast.error(`No user found with email ${email}`);
+        return null;
+      }
+      
+      // Check if the user is already a member
+      const { data: existingMember, error: memberCheckError } = await supabase
+        .from('household_members')
+        .select('*')
+        .eq('household_id', householdId)
+        .eq('user_id', userData.id);
+      
+      if (memberCheckError) throw memberCheckError;
+      
+      if (existingMember && existingMember.length > 0) {
+        toast.info(`${email} is already a member of this household`);
+        return null;
+      }
+      
+      // Add the user as a member
+      const { data: memberData, error: memberError } = await supabase
+        .from('household_members')
+        .insert([{
+          household_id: householdId,
+          user_id: userData.id,
+          role: 'member'
+        }])
+        .select('*')
+        .single();
+      
+      if (memberError) throw memberError;
+      
+      const avatarColorValue = userData.avatar_color || '#4A9F41';
+      
+      const newMember: HouseholdMember = {
+        id: memberData.id,
+        user_id: memberData.user_id,
+        role: memberData.role,
+        displayName: userData.display_name || email.split('@')[0],
+        email: email,
+        avatar_color: avatarColorValue,
+        avatarColor: avatarColorValue // Add alias for compatibility
+      };
+      
+      // Update the households state
+      setHouseholds(prevHouseholds => 
+        prevHouseholds.map(h => {
+          if (h.id === householdId) {
+            return {
+              ...h,
+              members: [...h.members, newMember]
+            };
+          }
+          return h;
+        })
+      );
+      
+      // Update current household if needed
+      if (currentHousehold?.id === householdId) {
+        setCurrentHousehold({
+          ...currentHousehold,
+          members: [...currentHousehold.members, newMember]
+        });
+      }
+      
+      toast.success(`Added ${email} to household`);
+      return newMember;
+    } catch (error: any) {
+      console.error('Error adding member:', error);
+      toast.error(`Failed to add member: ${error.message}`);
+      return null;
+    }
+  };
+
+  const removeMember = async (householdId: string, memberId: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    
+    try {
+      const { error } = await supabase
+        .from('household_members')
+        .delete()
+        .eq('id', memberId);
+      
+      if (error) throw error;
+      
+      // Update the households state
+      setHouseholds(prevHouseholds => 
+        prevHouseholds.map(h => {
+          if (h.id === householdId) {
+            return {
+              ...h,
+              members: h.members.filter(m => m.id !== memberId)
+            };
+          }
+          return h;
+        })
+      );
+      
+      // Update current household if needed
+      if (currentHousehold?.id === householdId) {
+        setCurrentHousehold({
+          ...currentHousehold,
+          members: currentHousehold.members.filter(m => m.id !== memberId)
+        });
+      }
+      
+      toast.success('Member removed from household');
+      return true;
+    } catch (error: any) {
+      console.error('Error removing member:', error);
+      toast.error(`Failed to remove member: ${error.message}`);
+      return false;
+    }
+  };
+
+  // Alias for addMember for compatibility
+  const inviteMember = async (email: string, householdId: string): Promise<HouseholdMember | null> => {
+    return addMember(householdId, email);
   };
 
   return (
-    <div className="p-4 pb-20 animate-fade-in">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">{translate('chores')}</h1>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="bg-foodish-500 hover:bg-foodish-600">
-              <Plus className="h-4 w-4 mr-2" />
-              {translate('addNew')}
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{translate('addNew')} {translate('chores')}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">{translate('name')}</label>
-                <Input
-                  placeholder="Chore name"
-                  value={newChore.name}
-                  onChange={(e) => setNewChore({ ...newChore, name: e.target.value })}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Assign to</label>
-                <Select
-                  value={newChore.assignedTo}
-                  onValueChange={(value) => setNewChore({ ...newChore, assignedTo: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select member" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currentHousehold?.members.map(member => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.displayName || member.email.split('@')[0]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Due date</label>
-                <Input
-                  type="date"
-                  value={newChore.dueDate}
-                  onChange={(e) => setNewChore({ ...newChore, dueDate: e.target.value })}
-                />
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="isRecurring"
-                  checked={newChore.isRecurring}
-                  onCheckedChange={(checked) => 
-                    setNewChore({ ...newChore, isRecurring: checked as boolean })
-                  }
-                />
-                <label
-                  htmlFor="isRecurring"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Recurring chore
-                </label>
-              </div>
-              
-              {newChore.isRecurring && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Frequency</label>
-                  <Select
-                    value={newChore.frequency}
-                    onValueChange={(value: any) => setNewChore({ ...newChore, frequency: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button onClick={handleCreateChore} className="bg-foodish-500 hover:bg-foodish-600">
-                {translate('save')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-      
-      {/* Tabs */}
-      <Tabs defaultValue="pending" onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid grid-cols-2 bg-foodish-50">
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="pending" className="space-y-4 mt-4">
-          {filteredChores.length > 0 ? (
-            filteredChores.map(chore => (
-              <Card key={chore.id} className="overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="flex items-center p-3">
-                    <Checkbox
-                      checked={chore.isCompleted}
-                      onCheckedChange={() => toggleChoreCompletion(chore.id)}
-                      className="mr-3"
-                    />
-                    <div className="flex-1">
-                      <h3 className="font-medium">{chore.name}</h3>
-                      <div className="flex items-center text-xs text-gray-500 mt-1">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        <span>
-                          {new Date(chore.dueDate).toLocaleDateString()}
-                          {chore.isRecurring && (
-                            <span className="ml-1 flex items-center">
-                              <RotateCw className="h-3 w-3 mr-1" />
-                              {chore.frequency}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center">
-                      {getMemberById(chore.assignedTo) && (
-                        <Avatar
-                          name={getMemberById(chore.assignedTo)?.displayName || getMemberById(chore.assignedTo)?.email}
-                          color={getMemberById(chore.assignedTo)?.avatar_color}
-                          size="sm"
-                        />
-                      )}
-                      <button 
-                        onClick={() => deleteChore(chore.id)}
-                        className="ml-2 text-gray-400 hover:text-red-500"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <div className="text-center py-10 text-gray-500">
-              <p>No pending chores</p>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="mt-4">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Chore
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>{/* Same content as above */}</DialogContent>
-              </Dialog>
-            </div>
-          )}
-        </TabsContent>
-        
-        <TabsContent value="completed" className="space-y-4 mt-4">
-          {filteredChores.length > 0 ? (
-            filteredChores.map(chore => (
-              <Card key={chore.id} className="overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="flex items-center p-3">
-                    <Checkbox
-                      checked={chore.isCompleted}
-                      onCheckedChange={() => toggleChoreCompletion(chore.id)}
-                      className="mr-3"
-                    />
-                    <div className="flex-1">
-                      <h3 className="font-medium line-through text-gray-500">{chore.name}</h3>
-                      <div className="flex items-center text-xs text-gray-400 mt-1">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        <span>
-                          {new Date(chore.dueDate).toLocaleDateString()}
-                          {chore.isRecurring && (
-                            <span className="ml-1 flex items-center">
-                              <RotateCw className="h-3 w-3 mr-1" />
-                              {chore.frequency}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center">
-                      {getMemberById(chore.assignedTo) && (
-                        <Avatar
-                          name={getMemberById(chore.assignedTo)?.displayName || getMemberById(chore.assignedTo)?.email}
-                          color={getMemberById(chore.assignedTo)?.avatar_color}
-                          size="sm"
-                        />
-                      )}
-                      <button 
-                        onClick={() => deleteChore(chore.id)}
-                        className="ml-2 text-gray-400 hover:text-red-500"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <div className="text-center py-10 text-gray-500">
-              <p>No completed chores</p>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
+    <HouseholdContext.Provider
+      value={{
+        households,
+        currentHousehold,
+        loading,
+        setCurrentHousehold,
+        createHousehold,
+        updateHousehold,
+        deleteHousehold,
+        addMember,
+        removeMember,
+        fetchHouseholds,
+        inviteMember,
+        switchHousehold,
+      }}
+    >
+      {children}
+    </HouseholdContext.Provider>
   );
 };
 
-export default Chores;
+export default HouseholdContext;
