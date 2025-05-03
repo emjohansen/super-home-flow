@@ -32,6 +32,8 @@ interface HouseholdContextType {
   addMember: (householdId: string, email: string) => Promise<HouseholdMember | null>;
   removeMember: (householdId: string, memberId: string) => Promise<boolean>;
   fetchHouseholds: () => Promise<void>;
+  inviteMember: (email: string, householdId: string) => Promise<HouseholdMember | null>;
+  switchHousehold: (householdId: string) => void;
 }
 
 const HouseholdContext = createContext<HouseholdContextType>({
@@ -45,6 +47,8 @@ const HouseholdContext = createContext<HouseholdContextType>({
   addMember: async () => null,
   removeMember: async () => false,
   fetchHouseholds: async () => {},
+  inviteMember: async () => null,
+  switchHousehold: () => {},
 });
 
 export const useHousehold = () => useContext(HouseholdContext);
@@ -107,25 +111,35 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             .select(`
               id, 
               user_id,
-              role,
-              profiles:user_id (
-                display_name,
-                email,
-                avatar_color
-              )
+              role
             `)
             .eq('household_id', household.id);
           
           if (membersError) throw membersError;
           
-          const formattedMembers: HouseholdMember[] = members?.map(m => ({
-            id: m.id,
-            user_id: m.user_id,
-            role: m.role,
-            displayName: m.profiles?.display_name || 'Unknown',
-            email: m.profiles?.email,
-            avatar_color: m.profiles?.avatar_color
-          })) || [];
+          // Now for each member, get their profile data
+          const formattedMembers: HouseholdMember[] = await Promise.all(
+            (members || []).map(async (member) => {
+              const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('display_name, email, avatar_color')
+                .eq('id', member.user_id)
+                .single();
+              
+              if (profileError && profileError.code !== 'PGRST116') {
+                console.error('Error fetching profile:', profileError);
+              }
+              
+              return {
+                id: member.id,
+                user_id: member.user_id,
+                role: member.role,
+                displayName: profileData?.display_name || 'Unknown',
+                email: profileData?.email,
+                avatar_color: profileData?.avatar_color
+              };
+            })
+          );
           
           return {
             ...household,
@@ -164,6 +178,14 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     fetchHouseholds();
   }, [currentUser]);
+
+  // Function to switch the current household
+  const switchHousehold = (householdId: string) => {
+    const household = households.find(h => h.id === householdId);
+    if (household) {
+      setCurrentHousehold(household);
+    }
+  };
 
   const createHousehold = async (name: string): Promise<Household | null> => {
     if (!currentUser) return null;
@@ -410,6 +432,11 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  // Alias for addMember for compatibility
+  const inviteMember = async (email: string, householdId: string): Promise<HouseholdMember | null> => {
+    return addMember(householdId, email);
+  };
+
   return (
     <HouseholdContext.Provider
       value={{
@@ -423,6 +450,8 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         addMember,
         removeMember,
         fetchHouseholds,
+        inviteMember,
+        switchHousehold,
       }}
     >
       {children}

@@ -18,9 +18,14 @@ const Settings = () => {
   const { translate, language, setLanguage, availableLanguages } = useLanguage();
   const navigate = useNavigate();
   
+  // Get display name from user_metadata or fallback
+  const userDisplayName = currentUser?.user_metadata?.display_name || '';
+  // Get avatar color from user_metadata or fallback
+  const userAvatarColor = currentUser?.user_metadata?.avatar_color || '#4A9F41';
+  
   // States
-  const [nickname, setNickname] = useState(currentUser?.displayName || '');
-  const [avatarColor, setAvatarColor] = useState(currentUser?.avatarColor || '#4A9F41');
+  const [nickname, setNickname] = useState(userDisplayName);
+  const [avatarColor, setAvatarColor] = useState(userAvatarColor);
   const [newHouseholdName, setNewHouseholdName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [saving, setSaving] = useState(false);
@@ -95,6 +100,10 @@ const Settings = () => {
     }
   };
   
+  // Get display name for the header
+  const displayName = currentUser?.user_metadata?.display_name || 
+                      currentUser?.email?.split('@')[0] || 'User';
+                      
   return (
     <div className="p-4 pb-20 animate-fade-in">
       <h1 className="text-2xl font-bold mb-4">{translate('settings')}</h1>
@@ -105,13 +114,13 @@ const Settings = () => {
         <div className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
           <div className="flex items-center mb-4">
             <Avatar 
-              name={currentUser?.displayName || currentUser?.email} 
+              name={displayName} 
               color={avatarColor}
               size="lg"
             />
             <div className="ml-3">
               <h3 className="font-medium">
-                {currentUser?.displayName || currentUser?.email?.split('@')[0]}
+                {displayName}
               </h3>
               <p className="text-sm text-gray-500">{currentUser?.email}</p>
             </div>
@@ -223,12 +232,12 @@ const Settings = () => {
                       <div className="flex items-center">
                         <Avatar 
                           name={member.displayName || member.email} 
-                          color={member.avatarColor}
+                          color={member.avatar_color}
                           size="sm"
                         />
                         <div className="ml-2">
                           <p className="text-sm font-medium">
-                            {member.displayName || member.email.split('@')[0]}
+                            {member.displayName || member.email?.split('@')[0]}
                           </p>
                           <p className="text-xs text-gray-500">{member.role}</p>
                         </div>

@@ -15,6 +15,10 @@ const Dashboard = () => {
   const { translate } = useLanguage();
   const navigate = useNavigate();
   
+  // Get display name and avatar color from user_metadata or fallback to email/default color
+  const displayName = currentUser?.user_metadata?.display_name || currentUser?.email?.split('@')[0] || 'User';
+  const avatarColor = currentUser?.user_metadata?.avatar_color || '#4A9F41';
+  
   const features = [
     {
       name: translate('recipes'),
@@ -57,8 +61,8 @@ const Dashboard = () => {
           </p>
         </div>
         <Avatar 
-          name={currentUser?.displayName || currentUser?.email} 
-          color={currentUser?.avatarColor}
+          name={displayName} 
+          color={avatarColor}
         />
       </div>
 
@@ -77,11 +81,11 @@ const Dashboard = () => {
                 <div key={member.id} className="flex flex-col items-center">
                   <Avatar
                     name={member.displayName || member.email}
-                    color={member.avatarColor}
+                    color={member.avatar_color}
                     size="sm"
                   />
                   <span className="text-xs mt-1 truncate max-w-[50px]">
-                    {member.displayName || member.email.split('@')[0]}
+                    {member.displayName || member.email?.split('@')[0]}
                   </span>
                 </div>
               ))}

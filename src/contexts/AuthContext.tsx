@@ -2,6 +2,13 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/sonner';
+
+// Define type for user profile updates
+interface ProfileUpdate {
+  displayName?: string;
+  avatarColor?: string;
+}
 
 interface AuthContextType {
   currentUser: User | null;
@@ -10,6 +17,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any | null }>;
   signUp: (email: string, password: string, displayName?: string) => Promise<{ error: any | null }>;
   signOut: () => Promise<{ error: any | null }>;
+  updateProfile: (updates: ProfileUpdate) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -19,6 +28,8 @@ const AuthContext = createContext<AuthContextType>({
   signIn: async () => ({ error: null }),
   signUp: async () => ({ error: null }),
   signOut: async () => ({ error: null }),
+  updateProfile: async () => {},
+  logout: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -93,6 +104,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error };
     }
   };
+  
+  // New method for updateProfile
+  const updateProfile = async (updates: ProfileUpdate) => {
+    if (!currentUser) {
+      throw new Error('No user logged in');
+    }
+    
+    try {
+      // Update user metadata
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: {
+          display_name: updates.displayName,
+          avatar_color: updates.avatarColor
+        }
+      });
+      
+      if (updateError) {
+        toast.error(`Failed to update profile: ${updateError.message}`);
+        throw updateError;
+      }
+      
+      // Also update the profile in the profiles table
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({
+          display_name: updates.displayName,
+          avatar_color: updates.avatarColor,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentUser.id);
+      
+      if (profileUpdateError) {
+        toast.error(`Failed to update profile data: ${profileUpdateError.message}`);
+        throw profileUpdateError;
+      }
+    } catch (error: any) {
+      console.error('Profile update error:', error);
+      throw error;
+    }
+  };
+  
+  // Alias for signOut for compatibility
+  const logout = async () => {
+    const { error } = await signOut();
+    if (error) {
+      throw error;
+    }
+  };
 
   return (
     <AuthContext.Provider
@@ -103,6 +162,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signIn,
         signUp,
         signOut,
+        updateProfile,
+        logout,
       }}
     >
       {children}

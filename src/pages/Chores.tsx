@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -269,7 +268,7 @@ const Chores = () => {
                       {getMemberById(chore.assignedTo) && (
                         <Avatar
                           name={getMemberById(chore.assignedTo)?.displayName || getMemberById(chore.assignedTo)?.email}
-                          color={getMemberById(chore.assignedTo)?.avatarColor}
+                          color={getMemberById(chore.assignedTo)?.avatar_color}
                           size="sm"
                         />
                       )}
@@ -330,7 +329,7 @@ const Chores = () => {
                       {getMemberById(chore.assignedTo) && (
                         <Avatar
                           name={getMemberById(chore.assignedTo)?.displayName || getMemberById(chore.assignedTo)?.email}
-                          color={getMemberById(chore.assignedTo)?.avatarColor}
+                          color={getMemberById(chore.assignedTo)?.avatar_color}
                           size="sm"
                         />
                       )}
