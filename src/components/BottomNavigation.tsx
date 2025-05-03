@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BookOpen, CheckSquare, ShoppingBag, Settings } from 'lucide-react';
+import { Home, BookOpen, CheckSquare, ShoppingBag, Settings, StickyNote, PackageOpen } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const BottomNavigation = () => {
@@ -32,6 +32,16 @@ const BottomNavigation = () => {
       label: translate('shopping'),
     },
     {
+      path: "/notes",
+      icon: StickyNote,
+      label: translate('notes'),
+    },
+    {
+      path: "/storage",
+      icon: PackageOpen,
+      label: translate('storage'),
+    },
+    {
       path: "/settings",
       icon: Settings,
       label: translate('settings'),
@@ -44,7 +54,7 @@ const BottomNavigation = () => {
         <Link 
           key={item.path}
           to={item.path}
-          className={`flex flex-col items-center justify-center w-1/5 h-full ${
+          className={`flex flex-col items-center justify-center w-1/7 h-full ${
             isActive(item.path) 
               ? 'text-foodish-500 font-medium' 
               : 'text-gray-500 hover:text-foodish-500'

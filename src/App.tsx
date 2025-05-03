@@ -17,6 +17,8 @@ import Dashboard from "@/pages/Dashboard";
 import Recipes from "@/pages/Recipes";
 import Chores from "@/pages/Chores";
 import Shopping from "@/pages/Shopping";
+import Notes from "@/pages/Notes";
+import Storage from "@/pages/Storage";
 import Settings from "@/pages/Settings";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -40,6 +42,8 @@ const App = () => (
                   <Route path="/recipes" element={<Recipes />} />
                   <Route path="/chores" element={<Chores />} />
                   <Route path="/shopping" element={<Shopping />} />
+                  <Route path="/notes" element={<Notes />} />
+                  <Route path="/storage" element={<Storage />} />
                   <Route path="/settings" element={<Settings />} />
                 </Route>
               </Routes>

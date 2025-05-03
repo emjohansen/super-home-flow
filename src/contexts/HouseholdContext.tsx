@@ -1,376 +1,433 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth, User } from './AuthContext';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './AuthContext';
+import { toast } from '@/components/ui/sonner';
 
-export type Member = {
+interface HouseholdMember {
   id: string;
-  email: string;
-  displayName: string | null;
-  avatarColor: string;
-  role: 'owner' | 'admin' | 'member';
-};
+  user_id: string;
+  role: string;
+  displayName?: string;
+  email?: string;
+  avatar_color?: string;
+}
 
-export type Household = {
+interface Household {
   id: string;
   name: string;
-  ownerId: string;
-  members: Member[];
-  createdAt: string;
-};
+  created_by: string;
+  created_at: string;
+  members: HouseholdMember[];
+}
 
 interface HouseholdContextType {
   households: Household[];
   currentHousehold: Household | null;
-  createHousehold: (name: string) => Promise<void>;
-  switchHousehold: (householdId: string) => void;
-  inviteMember: (email: string, householdId: string) => Promise<void>;
-  removeMember: (memberId: string, householdId: string) => Promise<void>;
-  leaveHousehold: (householdId: string) => Promise<void>;
-  updateHousehold: (householdId: string, data: Partial<Household>) => Promise<void>;
   loading: boolean;
+  setCurrentHousehold: (household: Household | null) => void;
+  createHousehold: (name: string) => Promise<Household | null>;
+  updateHousehold: (id: string, name: string) => Promise<Household | null>;
+  deleteHousehold: (id: string) => Promise<boolean>;
+  addMember: (householdId: string, email: string) => Promise<HouseholdMember | null>;
+  removeMember: (householdId: string, memberId: string) => Promise<boolean>;
+  fetchHouseholds: () => Promise<void>;
 }
 
-const HouseholdContext = createContext<HouseholdContextType | undefined>(undefined);
+const HouseholdContext = createContext<HouseholdContextType>({
+  households: [],
+  currentHousehold: null,
+  loading: true,
+  setCurrentHousehold: () => {},
+  createHousehold: async () => null,
+  updateHousehold: async () => null,
+  deleteHousehold: async () => false,
+  addMember: async () => null,
+  removeMember: async () => false,
+  fetchHouseholds: async () => {},
+});
 
-export function useHousehold() {
-  const context = useContext(HouseholdContext);
-  if (context === undefined) {
-    throw new Error('useHousehold must be used within a HouseholdProvider');
-  }
-  return context;
-}
+export const useHousehold = () => useContext(HouseholdContext);
 
-interface HouseholdProviderProps {
-  children: React.ReactNode;
-}
-
-export function HouseholdProvider({ children }: HouseholdProviderProps) {
-  const { currentUser } = useAuth();
+export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [households, setHouseholds] = useState<Household[]>([]);
   const [currentHousehold, setCurrentHousehold] = useState<Household | null>(null);
   const [loading, setLoading] = useState(true);
+  const { currentUser } = useAuth();
 
-  // Load households when user changes
-  useEffect(() => {
-    if (currentUser) {
-      // In a real app, would fetch from Firebase
-      const savedHouseholds = localStorage.getItem(`foodish_households_${currentUser.id}`);
-      const savedHouseholdId = localStorage.getItem(`foodish_current_household_${currentUser.id}`);
-      
-      if (savedHouseholds) {
-        const parsedHouseholds: Household[] = JSON.parse(savedHouseholds);
-        setHouseholds(parsedHouseholds);
-        
-        // Set current household
-        if (savedHouseholdId && parsedHouseholds.length > 0) {
-          const found = parsedHouseholds.find(h => h.id === savedHouseholdId);
-          setCurrentHousehold(found || parsedHouseholds[0]);
-        } else if (parsedHouseholds.length > 0) {
-          setCurrentHousehold(parsedHouseholds[0]);
-        }
-      } else {
-        // Create a default household for new users
-        const defaultHousehold: Household = {
-          id: Math.random().toString(36).substring(2, 15),
-          name: 'My Home',
-          ownerId: currentUser.id,
-          members: [
-            {
-              id: currentUser.id,
-              email: currentUser.email,
-              displayName: currentUser.displayName || 'You',
-              avatarColor: currentUser.avatarColor,
-              role: 'owner'
-            }
-          ],
-          createdAt: new Date().toISOString()
-        };
-        
-        setHouseholds([defaultHousehold]);
-        setCurrentHousehold(defaultHousehold);
-        
-        // Save to localStorage
-        localStorage.setItem(`foodish_households_${currentUser.id}`, JSON.stringify([defaultHousehold]));
-        localStorage.setItem(`foodish_current_household_${currentUser.id}`, defaultHousehold.id);
-      }
-    } else {
+  const fetchHouseholds = async () => {
+    if (!currentUser) {
       setHouseholds([]);
       setCurrentHousehold(null);
+      setLoading(false);
+      return;
     }
-    
-    setLoading(false);
-  }, [currentUser]);
 
-  // Save households to localStorage when they change
-  useEffect(() => {
-    if (currentUser && households.length > 0) {
-      localStorage.setItem(`foodish_households_${currentUser.id}`, JSON.stringify(households));
+    try {
+      setLoading(true);
+      
+      // Fetch all households the user is a member of
+      const { data: membershipData, error: membershipError } = await supabase
+        .from('household_members')
+        .select('household_id, role')
+        .eq('user_id', currentUser.id);
+      
+      if (membershipError) throw membershipError;
+      
+      if (!membershipData || membershipData.length === 0) {
+        setHouseholds([]);
+        setCurrentHousehold(null);
+        setLoading(false);
+        return;
+      }
+      
+      const householdIds = membershipData.map(m => m.household_id);
+      
+      // Fetch the households
+      const { data: householdsData, error: householdsError } = await supabase
+        .from('households')
+        .select('*')
+        .in('id', householdIds);
+      
+      if (householdsError) throw householdsError;
+      
+      if (!householdsData) {
+        setHouseholds([]);
+        setCurrentHousehold(null);
+        setLoading(false);
+        return;
+      }
+      
+      // For each household, fetch all members
+      const fetchedHouseholds: Household[] = await Promise.all(
+        householdsData.map(async (household) => {
+          // Get membership data
+          const { data: members, error: membersError } = await supabase
+            .from('household_members')
+            .select(`
+              id, 
+              user_id,
+              role,
+              profiles:user_id (
+                display_name,
+                email,
+                avatar_color
+              )
+            `)
+            .eq('household_id', household.id);
+          
+          if (membersError) throw membersError;
+          
+          const formattedMembers: HouseholdMember[] = members?.map(m => ({
+            id: m.id,
+            user_id: m.user_id,
+            role: m.role,
+            displayName: m.profiles?.display_name || 'Unknown',
+            email: m.profiles?.email,
+            avatar_color: m.profiles?.avatar_color
+          })) || [];
+          
+          return {
+            ...household,
+            members: formattedMembers
+          };
+        })
+      );
+      
+      setHouseholds(fetchedHouseholds);
+      
+      // If there's at least one household, set it as current
+      if (fetchedHouseholds.length > 0 && !currentHousehold) {
+        setCurrentHousehold(fetchedHouseholds[0]);
+      } else if (currentHousehold) {
+        // Update current household data if it's already set
+        const updated = fetchedHouseholds.find(h => h.id === currentHousehold.id);
+        if (updated) {
+          setCurrentHousehold(updated);
+        } else if (fetchedHouseholds.length > 0) {
+          // Current household no longer exists, select the first one
+          setCurrentHousehold(fetchedHouseholds[0]);
+        } else {
+          setCurrentHousehold(null);
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('Error fetching households:', error);
+      toast.error(`Failed to fetch households: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
-  }, [households, currentUser]);
-
-  // Save current household when it changes
-  useEffect(() => {
-    if (currentUser && currentHousehold) {
-      localStorage.setItem(`foodish_current_household_${currentUser.id}`, currentHousehold.id);
-    }
-  }, [currentHousehold, currentUser]);
-
-  // Create a new household
-  async function createHousehold(name: string) {
-    if (!currentUser) return;
-    
-    setLoading(true);
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        // Check household limit (5)
-        const userOwnedHouseholds = households.filter(h => h.ownerId === currentUser.id);
-        if (userOwnedHouseholds.length >= 5) {
-          setLoading(false);
-          reject(new Error('You can only create up to 5 households'));
-          return;
-        }
-        
-        const newHousehold: Household = {
-          id: Math.random().toString(36).substring(2, 15),
-          name,
-          ownerId: currentUser.id,
-          members: [
-            {
-              id: currentUser.id,
-              email: currentUser.email,
-              displayName: currentUser.displayName || 'You',
-              avatarColor: currentUser.avatarColor,
-              role: 'owner'
-            }
-          ],
-          createdAt: new Date().toISOString()
-        };
-        
-        const updatedHouseholds = [...households, newHousehold];
-        setHouseholds(updatedHouseholds);
-        setCurrentHousehold(newHousehold);
-        setLoading(false);
-        resolve();
-      }, 1000);
-    });
-  }
-
-  // Switch to a different household
-  function switchHousehold(householdId: string) {
-    const household = households.find(h => h.id === householdId);
-    if (household) {
-      setCurrentHousehold(household);
-    }
-  }
-
-  // Invite a member to a household
-  async function inviteMember(email: string, householdId: string) {
-    setLoading(true);
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        const householdIndex = households.findIndex(h => h.id === householdId);
-        
-        if (householdIndex === -1) {
-          setLoading(false);
-          reject(new Error('Household not found'));
-          return;
-        }
-        
-        // Check if member already exists
-        if (households[householdIndex].members.some(m => m.email.toLowerCase() === email.toLowerCase())) {
-          setLoading(false);
-          reject(new Error('User is already a member of this household'));
-          return;
-        }
-        
-        // In a real app, would check if user exists in Firebase
-        // For now, just add them with mock data
-        const newMember: Member = {
-          id: Math.random().toString(36).substring(2, 15),
-          email: email.toLowerCase(),
-          displayName: email.split('@')[0],
-          avatarColor: '#' + Math.floor(Math.random()*16777215).toString(16),
-          role: 'member'
-        };
-        
-        const updatedHousehold = {
-          ...households[householdIndex],
-          members: [...households[householdIndex].members, newMember]
-        };
-        
-        const updatedHouseholds = [...households];
-        updatedHouseholds[householdIndex] = updatedHousehold;
-        
-        setHouseholds(updatedHouseholds);
-        
-        if (currentHousehold?.id === householdId) {
-          setCurrentHousehold(updatedHousehold);
-        }
-        
-        setLoading(false);
-        resolve();
-      }, 1000);
-    });
-  }
-
-  // Remove a member from a household
-  async function removeMember(memberId: string, householdId: string) {
-    if (!currentUser) return Promise.reject(new Error('Not authenticated'));
-    
-    setLoading(true);
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        const householdIndex = households.findIndex(h => h.id === householdId);
-        
-        if (householdIndex === -1) {
-          setLoading(false);
-          reject(new Error('Household not found'));
-          return;
-        }
-        
-        const household = households[householdIndex];
-        
-        // Check permissions - only owners and admins can remove members
-        const currentMember = household.members.find(m => m.id === currentUser.id);
-        if (!currentMember || (currentMember.role !== 'owner' && currentMember.role !== 'admin')) {
-          setLoading(false);
-          reject(new Error('You do not have permission to remove members'));
-          return;
-        }
-        
-        // Cannot remove the owner
-        const memberToRemove = household.members.find(m => m.id === memberId);
-        if (!memberToRemove) {
-          setLoading(false);
-          reject(new Error('Member not found'));
-          return;
-        }
-        
-        if (memberToRemove.role === 'owner') {
-          setLoading(false);
-          reject(new Error('Cannot remove the owner of the household'));
-          return;
-        }
-        
-        const updatedHousehold = {
-          ...household,
-          members: household.members.filter(m => m.id !== memberId)
-        };
-        
-        const updatedHouseholds = [...households];
-        updatedHouseholds[householdIndex] = updatedHousehold;
-        
-        setHouseholds(updatedHouseholds);
-        
-        if (currentHousehold?.id === householdId) {
-          setCurrentHousehold(updatedHousehold);
-        }
-        
-        setLoading(false);
-        resolve();
-      }, 1000);
-    });
-  }
-
-  // Leave a household
-  async function leaveHousehold(householdId: string) {
-    if (!currentUser) return Promise.reject(new Error('Not authenticated'));
-    
-    setLoading(true);
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        const householdIndex = households.findIndex(h => h.id === householdId);
-        
-        if (householdIndex === -1) {
-          setLoading(false);
-          reject(new Error('Household not found'));
-          return;
-        }
-        
-        const household = households[householdIndex];
-        
-        // Cannot leave if you're the owner
-        const currentMember = household.members.find(m => m.id === currentUser.id);
-        if (!currentMember) {
-          setLoading(false);
-          reject(new Error('You are not a member of this household'));
-          return;
-        }
-        
-        if (currentMember.role === 'owner') {
-          setLoading(false);
-          reject(new Error('The owner cannot leave the household. Transfer ownership first or delete the household.'));
-          return;
-        }
-        
-        // Remove self from household
-        const updatedHousehold = {
-          ...household,
-          members: household.members.filter(m => m.id !== currentUser.id)
-        };
-        
-        const updatedHouseholds = [...households];
-        updatedHouseholds[householdIndex] = updatedHousehold;
-        
-        // Update households list
-        setHouseholds(updatedHouseholds);
-        
-        // If this was the current household, switch to another one
-        if (currentHousehold?.id === householdId) {
-          const nextHousehold = updatedHouseholds.find(h => h.id !== householdId);
-          setCurrentHousehold(nextHousehold || null);
-        }
-        
-        setLoading(false);
-        resolve();
-      }, 1000);
-    });
-  }
-
-  // Update household details
-  async function updateHousehold(householdId: string, data: Partial<Household>) {
-    setLoading(true);
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        const householdIndex = households.findIndex(h => h.id === householdId);
-        
-        if (householdIndex === -1) {
-          setLoading(false);
-          reject(new Error('Household not found'));
-          return;
-        }
-        
-        const updatedHousehold = {
-          ...households[householdIndex],
-          ...data
-        };
-        
-        const updatedHouseholds = [...households];
-        updatedHouseholds[householdIndex] = updatedHousehold;
-        
-        setHouseholds(updatedHouseholds);
-        
-        if (currentHousehold?.id === householdId) {
-          setCurrentHousehold(updatedHousehold);
-        }
-        
-        setLoading(false);
-        resolve();
-      }, 1000);
-    });
-  }
-
-  const value = {
-    households,
-    currentHousehold,
-    createHousehold,
-    switchHousehold,
-    inviteMember,
-    removeMember,
-    leaveHousehold,
-    updateHousehold,
-    loading,
   };
 
-  return <HouseholdContext.Provider value={value}>{children}</HouseholdContext.Provider>;
-}
+  // Fetch households whenever the user changes
+  useEffect(() => {
+    fetchHouseholds();
+  }, [currentUser]);
+
+  const createHousehold = async (name: string): Promise<Household | null> => {
+    if (!currentUser) return null;
+    
+    try {
+      // Create household
+      const { data, error } = await supabase
+        .from('households')
+        .insert([{ name, created_by: currentUser.id }])
+        .select('*')
+        .single();
+      
+      if (error) throw error;
+      
+      if (!data) return null;
+      
+      // When we insert a household, the trigger automatically adds the creator as a member,
+      // so we need to fetch the member data
+      const { data: memberData, error: memberError } = await supabase
+        .from('household_members')
+        .select('*')
+        .eq('household_id', data.id)
+        .eq('user_id', currentUser.id)
+        .single();
+      
+      if (memberError) throw memberError;
+      
+      const newHousehold: Household = {
+        ...data,
+        members: [{
+          id: memberData.id,
+          user_id: memberData.user_id,
+          role: memberData.role,
+          displayName: currentUser.user_metadata.display_name || currentUser.email || 'Unknown',
+          email: currentUser.email
+        }]
+      };
+      
+      setHouseholds(prevHouseholds => [...prevHouseholds, newHousehold]);
+      setCurrentHousehold(newHousehold);
+      toast.success(`Created household "${name}"`);
+      
+      return newHousehold;
+    } catch (error: any) {
+      console.error('Error creating household:', error);
+      toast.error(`Failed to create household: ${error.message}`);
+      return null;
+    }
+  };
+
+  const updateHousehold = async (id: string, name: string): Promise<Household | null> => {
+    if (!currentUser) return null;
+    
+    try {
+      const { data, error } = await supabase
+        .from('households')
+        .update({ name })
+        .eq('id', id)
+        .eq('created_by', currentUser.id)  // Only creator can update
+        .select('*')
+        .single();
+      
+      if (error) throw error;
+      
+      if (!data) return null;
+      
+      const updatedHousehold = households.find(h => h.id === id);
+      
+      if (updatedHousehold) {
+        const updated = { ...updatedHousehold, name };
+        
+        setHouseholds(prevHouseholds => 
+          prevHouseholds.map(h => h.id === id ? updated : h)
+        );
+        
+        if (currentHousehold?.id === id) {
+          setCurrentHousehold(updated);
+        }
+        
+        toast.success(`Updated household name to "${name}"`);
+        return updated;
+      }
+      
+      return null;
+    } catch (error: any) {
+      console.error('Error updating household:', error);
+      toast.error(`Failed to update household: ${error.message}`);
+      return null;
+    }
+  };
+
+  const deleteHousehold = async (id: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    
+    try {
+      const { error } = await supabase
+        .from('households')
+        .delete()
+        .eq('id', id)
+        .eq('created_by', currentUser.id);  // Only creator can delete
+      
+      if (error) throw error;
+      
+      setHouseholds(prevHouseholds => prevHouseholds.filter(h => h.id !== id));
+      
+      if (currentHousehold?.id === id) {
+        // If we deleted the current household, select another one if available
+        const nextHousehold = households.find(h => h.id !== id);
+        setCurrentHousehold(nextHousehold || null);
+      }
+      
+      toast.success('Household deleted');
+      return true;
+    } catch (error: any) {
+      console.error('Error deleting household:', error);
+      toast.error(`Failed to delete household: ${error.message}`);
+      return false;
+    }
+  };
+
+  const addMember = async (householdId: string, email: string): Promise<HouseholdMember | null> => {
+    if (!currentUser) return null;
+    
+    try {
+      // First find the user by email
+      const { data: userData, error: userError } = await supabase
+        .from('profiles')
+        .select('id, email, display_name, avatar_color')
+        .eq('email', email)
+        .single();
+      
+      if (userError) {
+        if (userError.code === 'PGRST116') {
+          toast.error(`No user found with email ${email}`);
+          return null;
+        }
+        throw userError;
+      }
+      
+      // Check if the user is already a member
+      const { data: existingMember, error: memberCheckError } = await supabase
+        .from('household_members')
+        .select('*')
+        .eq('household_id', householdId)
+        .eq('user_id', userData.id);
+      
+      if (memberCheckError) throw memberCheckError;
+      
+      if (existingMember && existingMember.length > 0) {
+        toast.info(`${email} is already a member of this household`);
+        return null;
+      }
+      
+      // Add the user as a member
+      const { data: memberData, error: memberError } = await supabase
+        .from('household_members')
+        .insert([{
+          household_id: householdId,
+          user_id: userData.id,
+          role: 'member'
+        }])
+        .select('*')
+        .single();
+      
+      if (memberError) throw memberError;
+      
+      const newMember: HouseholdMember = {
+        id: memberData.id,
+        user_id: memberData.user_id,
+        role: memberData.role,
+        displayName: userData.display_name || email.split('@')[0],
+        email: email,
+        avatar_color: userData.avatar_color
+      };
+      
+      // Update the households state
+      setHouseholds(prevHouseholds => 
+        prevHouseholds.map(h => {
+          if (h.id === householdId) {
+            return {
+              ...h,
+              members: [...h.members, newMember]
+            };
+          }
+          return h;
+        })
+      );
+      
+      // Update current household if needed
+      if (currentHousehold?.id === householdId) {
+        setCurrentHousehold({
+          ...currentHousehold,
+          members: [...currentHousehold.members, newMember]
+        });
+      }
+      
+      toast.success(`Added ${email} to household`);
+      return newMember;
+    } catch (error: any) {
+      console.error('Error adding member:', error);
+      toast.error(`Failed to add member: ${error.message}`);
+      return null;
+    }
+  };
+
+  const removeMember = async (householdId: string, memberId: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    
+    try {
+      const { error } = await supabase
+        .from('household_members')
+        .delete()
+        .eq('id', memberId);
+      
+      if (error) throw error;
+      
+      // Update the households state
+      setHouseholds(prevHouseholds => 
+        prevHouseholds.map(h => {
+          if (h.id === householdId) {
+            return {
+              ...h,
+              members: h.members.filter(m => m.id !== memberId)
+            };
+          }
+          return h;
+        })
+      );
+      
+      // Update current household if needed
+      if (currentHousehold?.id === householdId) {
+        setCurrentHousehold({
+          ...currentHousehold,
+          members: currentHousehold.members.filter(m => m.id !== memberId)
+        });
+      }
+      
+      toast.success('Member removed from household');
+      return true;
+    } catch (error: any) {
+      console.error('Error removing member:', error);
+      toast.error(`Failed to remove member: ${error.message}`);
+      return false;
+    }
+  };
+
+  return (
+    <HouseholdContext.Provider
+      value={{
+        households,
+        currentHousehold,
+        loading,
+        setCurrentHousehold,
+        createHousehold,
+        updateHousehold,
+        deleteHousehold,
+        addMember,
+        removeMember,
+        fetchHouseholds,
+      }}
+    >
+      {children}
+    </HouseholdContext.Provider>
+  );
+};
+
+export default HouseholdContext;
