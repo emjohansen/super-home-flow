@@ -453,6 +453,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      find_user_by_email: {
+        Args: { search_email: string }
+        Returns: {
+          id: string
+          email: string
+          created_at: string
+        }[]
+      }
       get_user_household_memberships: {
         Args: { user_uuid: string }
         Returns: {
