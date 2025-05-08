@@ -68,7 +68,7 @@ export function useRecipeService() {
         servings: recipe.servings,
         created_by: recipe.created_by,
         household_id: recipe.household_id,
-        is_public: recipe.is_public,
+        is_public: recipe.is_public || false,
         meal_type: recipe.meal_type || null,
         keywords: recipe.keywords || null
       }));
