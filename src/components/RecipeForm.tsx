@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -121,6 +122,9 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
     // Just pass the data directly to onSubmit
     onSubmit(data);
   };
+
+  // Filter out any options with empty values
+  const filteredUnitOptions = unitOptions.filter(option => option.value !== "");
 
   return (
     <div className="space-y-6">
@@ -344,7 +348,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                                   <FormItem>
                                     <Select
                                       onValueChange={field.onChange}
-                                      value={field.value || ""}
+                                      value={field.value || undefined}
                                     >
                                       <FormControl>
                                         <SelectTrigger>
@@ -352,7 +356,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                                         </SelectTrigger>
                                       </FormControl>
                                       <SelectContent>
-                                        {unitOptions.map((option) => (
+                                        {filteredUnitOptions.map((option) => (
                                           <SelectItem key={option.value} value={option.value}>
                                             {option.label}
                                           </SelectItem>
