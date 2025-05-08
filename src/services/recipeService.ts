@@ -57,7 +57,21 @@ export function useRecipeService() {
       
       if (error) throw error;
       
-      return data || [];
+      // Convert data to Recipe[] with correct fields
+      return data.map(recipe => ({
+        id: recipe.id,
+        name: recipe.name,
+        description: recipe.description,
+        instructions: recipe.instructions,
+        prep_time: recipe.prep_time,
+        cook_time: recipe.cook_time,
+        servings: recipe.servings,
+        created_by: recipe.created_by,
+        household_id: recipe.household_id,
+        is_public: recipe.is_public,
+        meal_type: recipe.meal_type || null,
+        keywords: recipe.keywords || null
+      }));
     } catch (error: any) {
       console.error('Error fetching recipes:', error.message);
       return [];
@@ -78,7 +92,7 @@ export function useRecipeService() {
       
       // Fetch ingredients
       const { data: ingredients, error: ingredientsError } = await supabase
-        .from('ingredients')
+        .from('recipe_ingredients')
         .select('*')
         .eq('recipe_id', id)
         .order('name', { ascending: true });
@@ -86,7 +100,18 @@ export function useRecipeService() {
       if (ingredientsError) throw ingredientsError;
       
       return {
-        ...recipe,
+        id: recipe.id,
+        name: recipe.name,
+        description: recipe.description,
+        instructions: recipe.instructions,
+        prep_time: recipe.prep_time,
+        cook_time: recipe.cook_time,
+        servings: recipe.servings,
+        created_by: recipe.created_by,
+        household_id: recipe.household_id,
+        is_public: recipe.is_public || false,
+        meal_type: recipe.meal_type || null,
+        keywords: recipe.keywords || null,
         ingredients: ingredients || []
       };
     } catch (error: any) {
@@ -131,7 +156,7 @@ export function useRecipeService() {
         }));
         
         const { error: ingredientsError } = await supabase
-          .from('ingredients')
+          .from('recipe_ingredients')
           .insert(ingredientsWithRecipeId);
         
         if (ingredientsError) throw ingredientsError;
@@ -142,7 +167,20 @@ export function useRecipeService() {
         description: 'Recipe created successfully',
       });
       
-      return recipe;
+      return {
+        id: recipe.id,
+        name: recipe.name,
+        description: recipe.description,
+        instructions: recipe.instructions,
+        prep_time: recipe.prep_time,
+        cook_time: recipe.cook_time,
+        servings: recipe.servings,
+        created_by: recipe.created_by,
+        household_id: recipe.household_id,
+        is_public: recipe.is_public || false,
+        meal_type: recipe.meal_type || null,
+        keywords: recipe.keywords || null
+      };
     } catch (error: any) {
       console.error('Error creating recipe:', error.message);
       toast({
@@ -182,7 +220,7 @@ export function useRecipeService() {
       
       // Delete existing ingredients
       const { error: deleteError } = await supabase
-        .from('ingredients')
+        .from('recipe_ingredients')
         .delete()
         .eq('recipe_id', id);
       
@@ -196,7 +234,7 @@ export function useRecipeService() {
         }));
         
         const { error: ingredientsError } = await supabase
-          .from('ingredients')
+          .from('recipe_ingredients')
           .insert(ingredientsWithRecipeId);
         
         if (ingredientsError) throw ingredientsError;
@@ -207,7 +245,20 @@ export function useRecipeService() {
         description: 'Recipe updated successfully',
       });
       
-      return recipe;
+      return {
+        id: recipe.id,
+        name: recipe.name,
+        description: recipe.description,
+        instructions: recipe.instructions,
+        prep_time: recipe.prep_time,
+        cook_time: recipe.cook_time,
+        servings: recipe.servings,
+        created_by: recipe.created_by,
+        household_id: recipe.household_id,
+        is_public: recipe.is_public || false,
+        meal_type: recipe.meal_type || null,
+        keywords: recipe.keywords || null
+      };
     } catch (error: any) {
       console.error('Error updating recipe:', error.message);
       toast({
@@ -225,7 +276,7 @@ export function useRecipeService() {
     try {
       // First delete any ingredients associated with this recipe
       const { error: ingredientsError } = await supabase
-        .from('ingredients')
+        .from('recipe_ingredients')
         .delete()
         .eq('recipe_id', id);
       
