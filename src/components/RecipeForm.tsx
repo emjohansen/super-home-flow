@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Trash2, ChefHat, GripVertical, ArrowUpDown } from "lucide-react";
+import { Plus, Trash2, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -40,7 +40,6 @@ const recipeSchema = z.object({
   cook_time: z.coerce.number().int().nonnegative().optional(),
   is_public: z.boolean().default(false),
   servings: z.coerce.number().int().positive().optional(),
-  image_url: z.string().optional(),
   instructions: z.array(instructionStepSchema),
   ingredients: z.array(
     z.object({
@@ -65,8 +64,6 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
   onSubmit,
   isSubmitting,
 }) => {
-  const [imageUrl, setImageUrl] = useState<string>(recipe?.image_url || "");
-  
   // Parse instructions from string to array of steps
   const parseInstructions = (instructions: string | null | undefined): { content: string }[] => {
     if (!instructions) return [{ content: "" }];
@@ -85,7 +82,6 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
     cook_time: recipe?.cook_time || 0,
     is_public: recipe?.is_public || false,
     servings: recipe?.servings || 2,
-    image_url: recipe?.image_url || "",
     instructions: parseInstructions(recipe?.instructions),
     ingredients: recipe?.ingredients?.map(ing => ({
       name: ing.name,
@@ -110,27 +106,14 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
     name: "instructions",
   });
 
-  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const url = e.target.value;
-    setImageUrl(url);
-    form.setValue("image_url", url);
-  };
-
-  // Submit the form with instructions in the correct format
-  const handleFormSubmit = (data: RecipeFormValues) => {
-    // We don't convert instructions to string here anymore
-    // Just pass the data directly to onSubmit
-    onSubmit(data);
-  };
-
   // Filter out any options with empty values
   const filteredUnitOptions = unitOptions.filter(option => option.value !== "");
 
   return (
     <div className="space-y-6">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <div className="grid grid-cols-1 gap-6">
             <div className="space-y-6">
               <FormField
                 control={form.control}
@@ -244,28 +227,6 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                 />
               </div>
               
-              {/* Image URL - retained but not prominently featured */}
-              <FormField
-                control={form.control}
-                name="image_url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Image URL (Optional)</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="https://example.com/image.jpg"
-                        {...field}
-                        onChange={(e) => {
-                          field.onChange(e);
-                          handleUrlChange(e);
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               {/* Ingredients section - redesigned to be more compact */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -429,22 +390,6 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
             </div>
 
             <div className="space-y-6">
-              {/* Preview (simplified) */}
-              {imageUrl ? (
-                <div className="relative h-40 rounded-md overflow-hidden">
-                  <img
-                    src={imageUrl}
-                    alt="Recipe preview"
-                    className="w-full h-full object-cover"
-                    onError={() => setImageUrl("")}
-                  />
-                </div>
-              ) : (
-                <div className="h-40 bg-gray-100 dark:bg-gray-800 rounded-md flex items-center justify-center">
-                  <ChefHat className="h-12 w-12 text-gray-400" />
-                </div>
-              )}
-
               {/* Step-by-step instructions */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">

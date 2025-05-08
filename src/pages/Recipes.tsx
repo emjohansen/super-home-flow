@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,8 @@ import {
   Eye,
   EyeOff,
   Edit,
-  Trash2
+  Trash2,
+  Utensils
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -157,37 +159,39 @@ const Recipes = () => {
   // Render a recipe card
   const RecipeCard = ({ recipe }: { recipe: Recipe }) => (
     <Card 
-      className="overflow-hidden group cursor-pointer"
+      className="overflow-hidden group cursor-pointer hover:shadow-md transition-all"
       onClick={() => handleViewRecipe(recipe.id)}
     >
-      <div className="relative h-40">
-        <img 
-          src={recipe.image_url || 'https://images.unsplash.com/photo-1593642532744-d377ab507dc8?q=80&w=1000'} 
-          alt={recipe.name} 
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-        <div className="absolute bottom-0 left-0 p-3 text-white">
-          <h3 className="font-medium">{recipe.name}</h3>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-medium line-clamp-1">{recipe.name}</h3>
+          {currentUser?.id === recipe.created_by && (
+            <div className="text-gray-400">
+              {recipe.is_public ? (
+                <Eye className="h-4 w-4" />
+              ) : (
+                <EyeOff className="h-4 w-4" />
+              )}
+            </div>
+          )}
         </div>
-        {currentUser?.id === recipe.created_by && (
-          <div className="absolute top-2 right-2">
-            {recipe.is_public ? (
-              <Eye className="h-4 w-4 text-white" />
-            ) : (
-              <EyeOff className="h-4 w-4 text-white" />
-            )}
-          </div>
-        )}
-      </div>
-      <CardContent className="p-3">
-        <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-          {recipe.description || 'No description available'}
-        </p>
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <div className="flex items-center">
-            <Clock className="h-3 w-3 mr-1" />
-            <span>{(recipe.prep_time || 0) + (recipe.cook_time || 0)} min</span>
+        
+        <div className="mb-3">
+          <p className="text-sm text-gray-600 line-clamp-2">
+            {recipe.description || 'No description available'}
+          </p>
+        </div>
+        
+        <div className="flex items-center justify-between text-xs text-gray-500 mt-auto">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center">
+              <Clock className="h-3.5 w-3.5 mr-1 text-foodish-500" />
+              <span>{(recipe.prep_time || 0) + (recipe.cook_time || 0)} min</span>
+            </div>
+            <div className="flex items-center">
+              <Utensils className="h-3.5 w-3.5 mr-1 text-foodish-500" />
+              <span>{recipe.ingredients?.length || 0} ingredients</span>
+            </div>
           </div>
         </div>
       </CardContent>
@@ -297,7 +301,7 @@ const Recipes = () => {
 
       {/* View Recipe Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:p-6">
           {selectedRecipe && (
             <RecipeDetails
               recipe={selectedRecipe}
