@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -188,9 +187,10 @@ const Recipes = () => {
               <Clock className="h-3.5 w-3.5 mr-1 text-foodish-500" />
               <span>{(recipe.prep_time || 0) + (recipe.cook_time || 0)} min</span>
             </div>
+            {/* We need to update this since Recipe type doesn't have ingredients property */}
             <div className="flex items-center">
               <Utensils className="h-3.5 w-3.5 mr-1 text-foodish-500" />
-              <span>{recipe.ingredients?.length || 0} ingredients</span>
+              <span>Recipe</span>
             </div>
           </div>
         </div>
