@@ -1,18 +1,12 @@
 
 import React, { useState } from "react";
-import { Clock, Users, Edit, Trash2, Eye, EyeOff, Plus, Minus } from "lucide-react";
+import { Clock, Users, Edit, Trash2, Eye, EyeOff, Plus, Minus, X, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { RecipeWithIngredients } from "@/services/recipeService";
 import { useAuth } from "@/contexts/AuthContext";
+import { MEAL_TYPES, KEYWORDS, getMealTypeLabel, getKeywordLabel } from "@/utils/recipeCategories";
 
 import {
   unitOptions, 
@@ -32,6 +26,7 @@ interface RecipeDetailsProps {
   onEdit: () => void;
   onDelete: () => void;
   onTogglePublic: () => void;
+  onClose: () => void;
 }
 
 const RecipeDetails: React.FC<RecipeDetailsProps> = ({
@@ -39,6 +34,7 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
   onEdit,
   onDelete,
   onTogglePublic,
+  onClose,
 }) => {
   const { currentUser } = useAuth();
   const isOwner = currentUser?.id === recipe.created_by;
@@ -126,198 +122,219 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      {/* Recipe Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">{recipe.name}</h1>
-        {recipe.description && (
-          <p className="text-gray-600 dark:text-gray-300 text-lg">
-            {recipe.description}
-          </p>
-        )}
+    <div className="h-full overflow-y-auto bg-white">
+      {/* Fixed header with back button and actions */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 flex items-center justify-between p-4">
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+        <div className="flex gap-2">
+          {isOwner && (
+            <>
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={onEdit}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onTogglePublic}
+              >
+                {recipe.is_public ? (
+                  <>
+                    <EyeOff className="h-4 w-4 mr-2" />
+                    Make Private
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4 mr-2" />
+                    Make Public
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onDelete();
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Recipe Meta Info */}
-      <div className="flex flex-wrap gap-6 mb-8 items-center">
-        <div className="flex items-center bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-full">
-          <Clock className="h-5 w-5 mr-2 text-foodish-500" />
-          <span className="font-medium">
-            {totalTime > 0 ? `${totalTime} min` : "Time not specified"}
-          </span>
-        </div>
-        
-        <div className="flex items-center bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-full">
-          <Users className="h-5 w-5 mr-2 text-foodish-500" />
-          <div className="flex items-center">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="h-6 w-6 rounded-full"
-              onClick={() => adjustServings(-1)}
-              disabled={servings <= 1}
-            >
-              <Minus className="h-3 w-3" />
-            </Button>
-            <span className="px-2 font-medium">{servings}</span>
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="h-6 w-6 rounded-full"
-              onClick={() => adjustServings(1)}
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-            <span className="ml-1">servings</span>
-          </div>
-        </div>
-        
-        {recipe.is_public !== null && (
-          <div className="flex items-center bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-full">
-            {recipe.is_public ? (
-              <Eye className="h-5 w-5 mr-2 text-foodish-500" />
-            ) : (
-              <EyeOff className="h-5 w-5 mr-2 text-foodish-500" />
-            )}
-            <span className="font-medium">{recipe.is_public ? "Public" : "Private"}</span>
-          </div>
-        )}
-      </div>
-      
-      {/* Owner Actions */}
-      {isOwner && (
-        <div className="flex flex-wrap gap-2 mb-8">
-          <Button variant="outline" onClick={onEdit}>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit
-          </Button>
-          <Button
-            variant="outline"
-            onClick={onTogglePublic}
-          >
-            {recipe.is_public ? (
-              <>
-                <EyeOff className="mr-2 h-4 w-4" />
-                Make Private
-              </>
-            ) : (
-              <>
-                <Eye className="mr-2 h-4 w-4" />
-                Make Public
-              </>
-            )}
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={onDelete}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </Button>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-        {/* Ingredients Column */}
-        <div className="md:col-span-5">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center justify-between">
-                <span>Ingredients</span>
-                <div className="flex gap-2">
-                  <Button 
-                    variant={unitSystem === null ? "default" : "outline"} 
-                    size="sm"
-                    onClick={resetUnitSystem}
-                    className="text-xs h-7 px-2"
-                  >
-                    Original
-                  </Button>
-                  <Button 
-                    variant={unitSystem === 'metric' ? "default" : "outline"} 
-                    size="sm"
-                    onClick={() => setUnitSystem('metric')}
-                    className="text-xs h-7 px-2"
-                  >
-                    Metric
-                  </Button>
-                  <Button 
-                    variant={unitSystem === 'imperial' ? "default" : "outline"} 
-                    size="sm"
-                    onClick={() => setUnitSystem('imperial')}
-                    className="text-xs h-7 px-2"
-                  >
-                    Imperial
-                  </Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recipe.ingredients?.length > 0 ? (
-                <ul className="space-y-3">
-                  {recipe.ingredients.map((ingredient) => {
-                    const convertedValue = getConvertedAmount(
-                      ingredient.amount, 
-                      ingredient.unit
-                    );
-                    
-                    return (
-                      <li 
-                        key={ingredient.id} 
-                        className="flex justify-between items-baseline pb-2 border-b border-gray-100 dark:border-gray-800"
-                      >
-                        <span className="font-medium">{ingredient.name}</span>
-                        <span className="text-gray-600 dark:text-gray-400">
-                          {convertedValue.amount && (
-                            <>
-                              {convertedValue.amount} {convertedValue.unit}
-                              {ingredient.notes && (
-                                <span className="text-gray-500 dark:text-gray-500 text-sm ml-1">
-                                  ({ingredient.notes})
-                                </span>
-                              )}
-                            </>
-                          )}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="text-center py-4 text-gray-500">
-                  No ingredients listed
-                </p>
-              )}
-            </CardContent>
-          </Card>
+      {/* Recipe content */}
+      <div className="max-w-4xl mx-auto p-4 sm:p-6">
+        {/* Recipe Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold mb-2">{recipe.name}</h1>
+          {recipe.description && (
+            <p className="text-gray-600 dark:text-gray-300 text-lg">
+              {recipe.description}
+            </p>
+          )}
         </div>
 
-        {/* Instructions Column */}
-        <div className="md:col-span-7">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Instructions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {instructionSteps.length > 0 ? (
-                <div className="space-y-6">
-                  {instructionSteps.map((step, index) => (
-                    <div key={index} className="flex gap-4">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-foodish-500 flex items-center justify-center text-white font-medium">
-                        {step.number}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-gray-700 dark:text-gray-300">{step.content}</p>
-                      </div>
-                    </div>
-                  ))}
+        {/* Badges for meal type and keywords */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {recipe.meal_type && (
+            <Badge className="bg-foodish-100 text-foodish-800 border-none">
+              {getMealTypeLabel(recipe.meal_type)}
+            </Badge>
+          )}
+          
+          {recipe.keywords && recipe.keywords.map((keyword, index) => (
+            <Badge key={index} variant="outline">
+              {getKeywordLabel(keyword)}
+            </Badge>
+          ))}
+        </div>
+
+        {/* Recipe Meta Info */}
+        <div className="flex flex-wrap gap-4 mb-8 items-center">
+          <div className="flex items-center bg-gray-100 rounded-full px-4 py-2">
+            <Clock className="h-5 w-5 mr-2 text-foodish-500" />
+            <span className="font-medium">
+              {totalTime > 0 ? `${totalTime} min` : "Time not specified"}
+            </span>
+          </div>
+          
+          <div className="flex items-center bg-gray-100 rounded-full px-4 py-2">
+            <Users className="h-5 w-5 mr-2 text-foodish-500" />
+            <div className="flex items-center">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 rounded-full p-0"
+                onClick={() => adjustServings(-1)}
+                disabled={servings <= 1}
+              >
+                <Minus className="h-3 w-3" />
+              </Button>
+              <span className="px-2 font-medium">{servings}</span>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 rounded-full p-0"
+                onClick={() => adjustServings(1)}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+              <span className="ml-1">servings</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+          {/* Ingredients Column */}
+          <div className="md:col-span-5">
+            <Card>
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">Ingredients</h2>
+                  <div className="flex gap-1">
+                    <Button 
+                      variant={unitSystem === null ? "default" : "outline"} 
+                      size="sm"
+                      onClick={resetUnitSystem}
+                      className="text-xs h-7 px-2"
+                    >
+                      Original
+                    </Button>
+                    <Button 
+                      variant={unitSystem === 'metric' ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setUnitSystem('metric')}
+                      className="text-xs h-7 px-2"
+                    >
+                      Metric
+                    </Button>
+                    <Button 
+                      variant={unitSystem === 'imperial' ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setUnitSystem('imperial')}
+                      className="text-xs h-7 px-2"
+                    >
+                      Imperial
+                    </Button>
+                  </div>
                 </div>
-              ) : (
-                <p className="text-center py-4 text-gray-500">
-                  No instructions added
-                </p>
-              )}
-            </CardContent>
-          </Card>
+              
+                {recipe.ingredients?.length > 0 ? (
+                  <ul className="space-y-3">
+                    {recipe.ingredients.map((ingredient) => {
+                      const convertedValue = getConvertedAmount(
+                        ingredient.amount, 
+                        ingredient.unit
+                      );
+                      
+                      return (
+                        <li 
+                          key={ingredient.id} 
+                          className="flex justify-between items-baseline pb-2 border-b border-gray-100"
+                        >
+                          <span className="font-medium">{ingredient.name}</span>
+                          <span className="text-gray-600 text-right">
+                            {convertedValue.amount && (
+                              <>
+                                {convertedValue.amount} {convertedValue.unit}
+                                {ingredient.notes && (
+                                  <span className="block text-gray-500 text-sm">
+                                    {ingredient.notes}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="text-center py-4 text-gray-500">
+                    No ingredients listed
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Instructions Column */}
+          <div className="md:col-span-7">
+            <Card>
+              <CardContent className="p-4 sm:p-6">
+                <h2 className="text-xl font-semibold mb-4">Instructions</h2>
+                
+                {instructionSteps.length > 0 ? (
+                  <div className="space-y-6">
+                    {instructionSteps.map((step, index) => (
+                      <div key={index} className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-foodish-500 flex items-center justify-center text-white font-medium">
+                          {step.number}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-gray-700">{step.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center py-4 text-gray-500">
+                    No instructions added
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

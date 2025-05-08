@@ -1,365 +1,294 @@
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 
-export type Recipe = {
-  id: string;
-  name: string;
-  description: string | null;
-  prep_time: number | null;
-  cook_time: number | null;
-  is_public: boolean | null;
-  image_url: string | null;
-  created_by: string;
-  household_id: string | null;
-  instructions: string | null;
-  servings: number | null;
-  created_at?: string;
-  updated_at?: string;
-};
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useHousehold } from '@/contexts/HouseholdContext';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
-export type RecipeIngredient = {
+export interface Ingredient {
   id: string;
   recipe_id: string;
   name: string;
   amount: number | null;
   unit: string | null;
   notes: string | null;
-  order_index: number | null;
-};
+}
 
-export type RecipeWithIngredients = Recipe & {
-  ingredients: RecipeIngredient[];
-};
+export interface Recipe {
+  id: string;
+  name: string;
+  description: string | null;
+  instructions: string | null;
+  prep_time: number | null;
+  cook_time: number | null;
+  servings: number | null;
+  created_by: string;
+  household_id: string | null;
+  is_public: boolean;
+  meal_type: string | null;
+  keywords: string[] | null;
+}
 
-export const useRecipeService = () => {
-  const { toast } = useToast();
+export interface RecipeWithIngredients extends Recipe {
+  ingredients: Ingredient[];
+}
+
+export function useRecipeService() {
   const { currentUser } = useAuth();
-
-  const fetchRecipes = async (isPublic: boolean = false) => {
+  const { currentHousehold } = useHousehold();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  
+  const fetchRecipes = async (isPublic = false): Promise<Recipe[]> => {
     try {
       let query = supabase.from('recipes').select('*');
       
-      if (!isPublic) {
-        // Fetch household recipes
-        query = query.eq('created_by', currentUser?.id);
-      } else {
-        // Fetch public recipes
+      if (isPublic) {
         query = query.eq('is_public', true);
+      } else if (currentHousehold) {
+        query = query.eq('household_id', currentHousehold.id);
+      } else if (currentUser) {
+        query = query.eq('created_by', currentUser.id);
+      } else {
+        return [];
       }
       
-      const { data, error } = await query;
+      const { data, error } = await query.order('name', { ascending: true });
       
       if (error) throw error;
+      
       return data || [];
     } catch (error: any) {
-      toast({
-        title: "Error fetching recipes",
-        description: error.message,
-        variant: "destructive"
-      });
+      console.error('Error fetching recipes:', error.message);
       return [];
     }
   };
-
-  const fetchRecipeById = async (id: string) => {
+  
+  const fetchRecipeById = async (id: string): Promise<RecipeWithIngredients | null> => {
     try {
-      // Fetch recipe details
-      const { data: recipe, error } = await supabase
+      // Fetch recipe
+      const { data: recipe, error: recipeError } = await supabase
         .from('recipes')
         .select('*')
         .eq('id', id)
         .single();
-
-      if (error) throw error;
+      
+      if (recipeError) throw recipeError;
       if (!recipe) return null;
-
+      
       // Fetch ingredients
       const { data: ingredients, error: ingredientsError } = await supabase
-        .from('recipe_ingredients')
+        .from('ingredients')
         .select('*')
         .eq('recipe_id', id)
-        .order('order_index', { ascending: true });
-
+        .order('name', { ascending: true });
+      
       if (ingredientsError) throw ingredientsError;
-
+      
       return {
         ...recipe,
         ingredients: ingredients || []
       };
     } catch (error: any) {
-      toast({
-        title: "Error fetching recipe",
-        description: error.message,
-        variant: "destructive"
-      });
+      console.error('Error fetching recipe:', error.message);
       return null;
     }
   };
-
-  // Helper function to convert instructions from array to string format for storage
-  const formatInstructionsForStorage = (instructions: { content: string }[]): string => {
-    return instructions
-      .map((step, index) => `${index + 1}. ${step.content}`)
-      .join("\n");
-  };
-
-  const createRecipe = async (recipe: {
-    name: string;
-    description?: string;
-    prep_time?: number;
-    cook_time?: number;
-    is_public?: boolean;
-    servings?: number;
-    image_url?: string;
-    instructions: { content: string }[];
-    ingredients?: { name: string; amount?: number | null; unit?: string | null; notes?: string | null }[];
-  }) => {
-    if (!currentUser) {
-      toast({
-        title: "Authentication required",
-        description: "You need to be logged in to create recipes",
-        variant: "destructive"
-      });
-      return null;
-    }
-
+  
+  const createRecipe = async (recipeData: any): Promise<Recipe | null> => {
+    setLoading(true);
+    
     try {
-      // Convert instructions array to string format for storage
-      const instructionsString = formatInstructionsForStorage(recipe.instructions);
+      const userId = currentUser?.id;
+      const householdId = currentHousehold?.id;
       
-      // First create the recipe
-      const { data: recipeData, error: recipeError } = await supabase
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Extract ingredients from the form data
+      const { ingredients, ...recipeFields } = recipeData;
+      
+      // Create recipe
+      const { data: recipe, error: recipeError } = await supabase
         .from('recipes')
-        .insert([{
-          name: recipe.name,
-          description: recipe.description || null,
-          prep_time: recipe.prep_time || 0,
-          cook_time: recipe.cook_time || 0,
-          is_public: recipe.is_public || false,
-          image_url: recipe.image_url || null,
-          created_by: currentUser.id,
-          household_id: null,
-          instructions: instructionsString,
-          servings: recipe.servings || null
-        }])
+        .insert({
+          ...recipeFields,
+          created_by: userId,
+          household_id: householdId,
+        })
         .select()
         .single();
-
+      
       if (recipeError) throw recipeError;
-
-      // Then create ingredients if any
-      if (recipe.ingredients && recipe.ingredients.length > 0) {
-        const ingredientsWithRecipeId = recipe.ingredients.map((ingredient, index) => ({
-          recipe_id: recipeData.id,
-          name: ingredient.name,
-          amount: ingredient.amount,
-          unit: ingredient.unit,
-          notes: ingredient.notes,
-          order_index: index
+      if (!recipe) throw new Error('Failed to create recipe');
+      
+      // Create ingredients
+      if (ingredients && ingredients.length > 0) {
+        const ingredientsWithRecipeId = ingredients.map((ingredient: any) => ({
+          ...ingredient,
+          recipe_id: recipe.id
         }));
-
+        
         const { error: ingredientsError } = await supabase
-          .from('recipe_ingredients')
+          .from('ingredients')
           .insert(ingredientsWithRecipeId);
-
+        
         if (ingredientsError) throw ingredientsError;
       }
-
+      
       toast({
-        title: "Recipe created",
-        description: "Your recipe has been created successfully"
+        title: 'Success',
+        description: 'Recipe created successfully',
       });
-
-      return recipeData;
+      
+      return recipe;
     } catch (error: any) {
+      console.error('Error creating recipe:', error.message);
       toast({
-        title: "Error creating recipe",
-        description: error.message,
-        variant: "destructive"
+        title: 'Error',
+        description: `Failed to create recipe: ${error.message}`,
+        variant: 'destructive',
       });
       return null;
+    } finally {
+      setLoading(false);
     }
   };
-
-  const updateRecipe = async (
-    id: string, 
-    recipe: {
-      name?: string;
-      description?: string;
-      prep_time?: number;
-      cook_time?: number;
-      is_public?: boolean;
-      servings?: number;
-      image_url?: string;
-      instructions: { content: string }[];
-      ingredients?: { name: string; amount?: number | null; unit?: string | null; notes?: string | null; id?: string }[];
-    }
-  ) => {
-    if (!currentUser) {
-      toast({
-        title: "Authentication required",
-        description: "You need to be logged in to update recipes",
-        variant: "destructive"
-      });
-      return null;
-    }
-
+  
+  const updateRecipe = async (id: string, recipeData: any): Promise<Recipe | null> => {
+    setLoading(true);
+    
     try {
-      // Convert instructions array to string format for storage
-      const instructionsString = formatInstructionsForStorage(recipe.instructions);
+      const userId = currentUser?.id;
       
-      // Update the recipe
-      const { data: recipeData, error: recipeError } = await supabase
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Extract ingredients from the form data
+      const { ingredients, ...recipeFields } = recipeData;
+      
+      // Update recipe
+      const { data: recipe, error: recipeError } = await supabase
         .from('recipes')
-        .update({
-          name: recipe.name,
-          description: recipe.description,
-          prep_time: recipe.prep_time,
-          cook_time: recipe.cook_time,
-          is_public: recipe.is_public,
-          image_url: recipe.image_url,
-          household_id: null,
-          instructions: instructionsString,
-          servings: recipe.servings,
-          updated_at: new Date().toISOString()
-        })
+        .update(recipeFields)
         .eq('id', id)
-        .eq('created_by', currentUser.id) // Ensure user owns this recipe
         .select()
         .single();
-
+      
       if (recipeError) throw recipeError;
-
+      if (!recipe) throw new Error('Failed to update recipe');
+      
       // Delete existing ingredients
       const { error: deleteError } = await supabase
-        .from('recipe_ingredients')
+        .from('ingredients')
         .delete()
         .eq('recipe_id', id);
-
+      
       if (deleteError) throw deleteError;
-
-      // Add updated ingredients
-      if (recipe.ingredients && recipe.ingredients.length > 0) {
-        const ingredientsWithRecipeId = recipe.ingredients.map((ingredient, index) => ({
-          recipe_id: id,
-          name: ingredient.name,
-          amount: ingredient.amount,
-          unit: ingredient.unit,
-          notes: ingredient.notes,
-          order_index: index
+      
+      // Create new ingredients
+      if (ingredients && ingredients.length > 0) {
+        const ingredientsWithRecipeId = ingredients.map((ingredient: any) => ({
+          ...ingredient,
+          recipe_id: id
         }));
-
+        
         const { error: ingredientsError } = await supabase
-          .from('recipe_ingredients')
+          .from('ingredients')
           .insert(ingredientsWithRecipeId);
-
+        
         if (ingredientsError) throw ingredientsError;
       }
-
+      
       toast({
-        title: "Recipe updated",
-        description: "Your recipe has been updated successfully"
+        title: 'Success',
+        description: 'Recipe updated successfully',
       });
-
-      return recipeData;
+      
+      return recipe;
     } catch (error: any) {
+      console.error('Error updating recipe:', error.message);
       toast({
-        title: "Error updating recipe",
-        description: error.message,
-        variant: "destructive"
+        title: 'Error',
+        description: `Failed to update recipe: ${error.message}`,
+        variant: 'destructive',
       });
       return null;
+    } finally {
+      setLoading(false);
     }
   };
-
-  const deleteRecipe = async (id: string) => {
-    if (!currentUser) {
-      toast({
-        title: "Authentication required",
-        description: "You need to be logged in to delete recipes",
-        variant: "destructive"
-      });
-      return false;
-    }
-
+  
+  const deleteRecipe = async (id: string): Promise<boolean> => {
     try {
-      // Delete ingredients first (cascade should handle this, but being explicit)
+      // First delete any ingredients associated with this recipe
       const { error: ingredientsError } = await supabase
-        .from('recipe_ingredients')
+        .from('ingredients')
         .delete()
         .eq('recipe_id', id);
-
+      
       if (ingredientsError) throw ingredientsError;
-
-      // Delete the recipe
+      
+      // Then delete the recipe itself
       const { error: recipeError } = await supabase
         .from('recipes')
         .delete()
-        .eq('id', id)
-        .eq('created_by', currentUser.id); // Ensure user owns this recipe
-
+        .eq('id', id);
+      
       if (recipeError) throw recipeError;
-
+      
       toast({
-        title: "Recipe deleted",
-        description: "Your recipe has been deleted successfully"
+        title: 'Success',
+        description: 'Recipe deleted successfully',
       });
-
+      
       return true;
     } catch (error: any) {
+      console.error('Error deleting recipe:', error.message);
       toast({
-        title: "Error deleting recipe",
-        description: error.message,
-        variant: "destructive"
+        title: 'Error',
+        description: `Failed to delete recipe: ${error.message}`,
+        variant: 'destructive',
       });
       return false;
     }
   };
-
-  const togglePublicStatus = async (id: string, isPublic: boolean) => {
-    if (!currentUser) {
-      toast({
-        title: "Authentication required",
-        description: "You need to be logged in to update recipes",
-        variant: "destructive"
-      });
-      return null;
-    }
-
+  
+  const togglePublicStatus = async (id: string, isPublic: boolean): Promise<boolean> => {
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('recipes')
         .update({ is_public: isPublic })
-        .eq('id', id)
-        .eq('created_by', currentUser.id) // Ensure user owns this recipe
-        .select()
-        .single();
-
+        .eq('id', id);
+      
       if (error) throw error;
-
+      
       toast({
-        title: isPublic ? "Recipe made public" : "Recipe made private",
-        description: `Your recipe is now ${isPublic ? "public" : "private"}`
+        title: 'Success',
+        description: `Recipe is now ${isPublic ? 'public' : 'private'}`,
       });
-
-      return data;
+      
+      return true;
     } catch (error: any) {
+      console.error('Error updating recipe visibility:', error.message);
       toast({
-        title: "Error updating recipe",
-        description: error.message,
-        variant: "destructive"
+        title: 'Error',
+        description: `Failed to update visibility: ${error.message}`,
+        variant: 'destructive',
       });
-      return null;
+      return false;
     }
   };
-
+  
   return {
+    loading,
     fetchRecipes,
     fetchRecipeById,
     createRecipe,
     updateRecipe,
     deleteRecipe,
-    togglePublicStatus
+    togglePublicStatus,
   };
-};
+}

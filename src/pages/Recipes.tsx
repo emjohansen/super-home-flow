@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from "@/components/ui/badge";
 import { 
   Plus, 
   Search, 
@@ -29,7 +32,8 @@ import {
   EyeOff,
   Edit,
   Trash2,
-  Utensils
+  Utensils,
+  Filter
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -37,6 +41,8 @@ import RecipeForm from '@/components/RecipeForm';
 import RecipeDetails from '@/components/RecipeDetails';
 import { useRecipeService, Recipe } from '@/services/recipeService';
 import { useToast } from '@/hooks/use-toast';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { MEAL_TYPES, KEYWORDS, getMealTypeLabel, getKeywordLabel } from '@/utils/recipeCategories';
 
 const Recipes = () => {
   const { translate } = useLanguage();
@@ -48,6 +54,10 @@ const Recipes = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [activeTab, setActiveTab] = useState('household');
   const [loading, setLoading] = useState(true);
+  
+  // Filtering state
+  const [selectedMealType, setSelectedMealType] = useState<string | null>(null);
+  const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
   
   // UI state
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
@@ -71,11 +81,27 @@ const Recipes = () => {
     setLoading(false);
   };
 
-  // Filter recipes based on search query
+  // Filter recipes based on search query, meal type, and keywords
   const filteredRecipes = recipes.filter(recipe => {
-    return recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           (recipe.description && recipe.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    // Text search filter
+    const matchesSearch = 
+      recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (recipe.description && recipe.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    // Meal type filter
+    const matchesMealType = !selectedMealType || recipe.meal_type === selectedMealType;
+    
+    // Keyword filter
+    const matchesKeyword = !selectedKeyword || 
+      (recipe.keywords && recipe.keywords.includes(selectedKeyword));
+    
+    return matchesSearch && matchesMealType && matchesKeyword;
   });
+
+  const clearFilters = () => {
+    setSelectedMealType(null);
+    setSelectedKeyword(null);
+  };
 
   // Recipe actions
   const handleViewRecipe = async (recipeId: string) => {
@@ -136,10 +162,18 @@ const Recipes = () => {
   const handleConfirmDelete = async () => {
     if (!selectedRecipeId) return;
     
-    const result = await recipeService.deleteRecipe(selectedRecipeId);
-    if (result) {
-      setIsDeleteDialogOpen(false);
-      fetchRecipes();
+    try {
+      const result = await recipeService.deleteRecipe(selectedRecipeId);
+      if (result) {
+        // Close all dialogs when delete is successful
+        setIsDeleteDialogOpen(false);
+        setIsViewDialogOpen(false);
+        setSelectedRecipeId(null);
+        setSelectedRecipe(null);
+        fetchRecipes();
+      }
+    } catch (error) {
+      console.error('Error deleting recipe:', error);
     }
   };
 
@@ -175,6 +209,31 @@ const Recipes = () => {
           )}
         </div>
         
+        {/* Meal type badge */}
+        {recipe.meal_type && (
+          <div className="mb-2">
+            <Badge variant="secondary" className="bg-foodish-100 text-foodish-800">
+              {getMealTypeLabel(recipe.meal_type)}
+            </Badge>
+          </div>
+        )}
+        
+        {/* Keywords */}
+        {recipe.keywords && recipe.keywords.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {recipe.keywords.slice(0, 2).map((keyword, index) => (
+              <Badge key={index} variant="outline" className="text-xs">
+                {getKeywordLabel(keyword)}
+              </Badge>
+            ))}
+            {recipe.keywords.length > 2 && (
+              <Badge variant="outline" className="text-xs">
+                +{recipe.keywords.length - 2}
+              </Badge>
+            )}
+          </div>
+        )}
+        
         <div className="mb-3">
           <p className="text-sm text-gray-600 line-clamp-2">
             {recipe.description || 'No description available'}
@@ -187,7 +246,6 @@ const Recipes = () => {
               <Clock className="h-3.5 w-3.5 mr-1 text-foodish-500" />
               <span>{(recipe.prep_time || 0) + (recipe.cook_time || 0)} min</span>
             </div>
-            {/* We need to update this since Recipe type doesn't have ingredients property */}
             <div className="flex items-center">
               <Utensils className="h-3.5 w-3.5 mr-1 text-foodish-500" />
               <span>Recipe</span>
@@ -221,16 +279,100 @@ const Recipes = () => {
         </Button>
       </div>
       
-      {/* Search */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input
-          placeholder={translate('search')}
-          className="pl-10"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      {/* Search and Filter */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="relative col-span-1 md:col-span-2">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder={translate('search')}
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full flex-1">
+                <Filter className="h-4 w-4 mr-2" />
+                Filters {(selectedMealType || selectedKeyword) && <Badge className="ml-2 bg-foodish-500">!</Badge>}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[240px]" align="end">
+              <div className="p-2">
+                <div className="mb-4">
+                  <p className="mb-1 text-sm font-medium">Meal Type</p>
+                  <Select value={selectedMealType || ''} onValueChange={(value) => setSelectedMealType(value || null)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All meal types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All meal types</SelectItem>
+                      {MEAL_TYPES.map(type => (
+                        <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="mb-4">
+                  <p className="mb-1 text-sm font-medium">Keywords</p>
+                  <Select value={selectedKeyword || ''} onValueChange={(value) => setSelectedKeyword(value || null)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All keywords" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All keywords</SelectItem>
+                      {KEYWORDS.map(keyword => (
+                        <SelectItem key={keyword.value} value={keyword.value}>{keyword.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {(selectedMealType || selectedKeyword) && (
+                  <Button variant="outline" className="w-full" onClick={clearFilters}>
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
+      
+      {/* Applied Filters Display */}
+      {(selectedMealType || selectedKeyword) && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {selectedMealType && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              {getMealTypeLabel(selectedMealType)}
+              <button 
+                className="ml-1 hover:bg-gray-200 rounded-full p-0.5" 
+                onClick={() => setSelectedMealType(null)}
+              >
+                ✕
+              </button>
+            </Badge>
+          )}
+          {selectedKeyword && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              {getKeywordLabel(selectedKeyword)}
+              <button 
+                className="ml-1 hover:bg-gray-200 rounded-full p-0.5" 
+                onClick={() => setSelectedKeyword(null)}
+              >
+                ✕
+              </button>
+            </Badge>
+          )}
+          {(selectedMealType || selectedKeyword) && (
+            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={clearFilters}>
+              Clear all
+            </Button>
+          )}
+        </div>
+      )}
       
       {/* Tabs */}
       <Tabs defaultValue="household" onValueChange={setActiveTab} className="mb-6">
@@ -299,19 +441,20 @@ const Recipes = () => {
         </DialogContent>
       </Dialog>
 
-      {/* View Recipe Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:p-6">
-          {selectedRecipe && (
+      {/* View Recipe Dialog - Making it fullscreen */}
+      {isViewDialogOpen && selectedRecipe && (
+        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+          <DialogContent className="max-w-full w-full h-[100vh] m-0 p-0 rounded-none">
             <RecipeDetails
               recipe={selectedRecipe}
               onEdit={handleEditRecipe}
               onDelete={handleDeleteClick}
               onTogglePublic={handleTogglePublic}
+              onClose={() => setIsViewDialogOpen(false)}
             />
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
