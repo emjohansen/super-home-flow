@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -98,7 +97,24 @@ export const useRecipeService = () => {
     }
   };
 
-  const createRecipe = async (recipe: Partial<Recipe>, ingredients: Omit<RecipeIngredient, 'id' | 'recipe_id'>[]) => {
+  // Helper function to convert instructions from array to string format for storage
+  const formatInstructionsForStorage = (instructions: { content: string }[]): string => {
+    return instructions
+      .map((step, index) => `${index + 1}. ${step.content}`)
+      .join("\n");
+  };
+
+  const createRecipe = async (recipe: {
+    name: string;
+    description?: string;
+    prep_time?: number;
+    cook_time?: number;
+    is_public?: boolean;
+    servings?: number;
+    image_url?: string;
+    instructions: { content: string }[];
+    ingredients?: { name: string; amount?: number | null; unit?: string | null; notes?: string | null }[];
+  }) => {
     if (!currentUser) {
       toast({
         title: "Authentication required",
@@ -109,6 +125,9 @@ export const useRecipeService = () => {
     }
 
     try {
+      // Convert instructions array to string format for storage
+      const instructionsString = formatInstructionsForStorage(recipe.instructions);
+      
       // First create the recipe
       const { data: recipeData, error: recipeError } = await supabase
         .from('recipes')
@@ -120,8 +139,8 @@ export const useRecipeService = () => {
           is_public: recipe.is_public || false,
           image_url: recipe.image_url || null,
           created_by: currentUser.id,
-          household_id: recipe.household_id || null,
-          instructions: recipe.instructions || null,
+          household_id: null,
+          instructions: instructionsString,
           servings: recipe.servings || null
         }])
         .select()
@@ -130,8 +149,8 @@ export const useRecipeService = () => {
       if (recipeError) throw recipeError;
 
       // Then create ingredients if any
-      if (ingredients.length > 0) {
-        const ingredientsWithRecipeId = ingredients.map((ingredient, index) => ({
+      if (recipe.ingredients && recipe.ingredients.length > 0) {
+        const ingredientsWithRecipeId = recipe.ingredients.map((ingredient, index) => ({
           recipe_id: recipeData.id,
           name: ingredient.name,
           amount: ingredient.amount,
@@ -165,8 +184,17 @@ export const useRecipeService = () => {
 
   const updateRecipe = async (
     id: string, 
-    recipe: Partial<Recipe>, 
-    ingredients: (Omit<RecipeIngredient, 'recipe_id'> | Omit<RecipeIngredient, 'id' | 'recipe_id'>)[]
+    recipe: {
+      name?: string;
+      description?: string;
+      prep_time?: number;
+      cook_time?: number;
+      is_public?: boolean;
+      servings?: number;
+      image_url?: string;
+      instructions: { content: string }[];
+      ingredients?: { name: string; amount?: number | null; unit?: string | null; notes?: string | null; id?: string }[];
+    }
   ) => {
     if (!currentUser) {
       toast({
@@ -178,6 +206,9 @@ export const useRecipeService = () => {
     }
 
     try {
+      // Convert instructions array to string format for storage
+      const instructionsString = formatInstructionsForStorage(recipe.instructions);
+      
       // Update the recipe
       const { data: recipeData, error: recipeError } = await supabase
         .from('recipes')
@@ -188,8 +219,8 @@ export const useRecipeService = () => {
           cook_time: recipe.cook_time,
           is_public: recipe.is_public,
           image_url: recipe.image_url,
-          household_id: recipe.household_id,
-          instructions: recipe.instructions,
+          household_id: null,
+          instructions: instructionsString,
           servings: recipe.servings,
           updated_at: new Date().toISOString()
         })
@@ -209,8 +240,8 @@ export const useRecipeService = () => {
       if (deleteError) throw deleteError;
 
       // Add updated ingredients
-      if (ingredients.length > 0) {
-        const ingredientsWithRecipeId = ingredients.map((ingredient, index) => ({
+      if (recipe.ingredients && recipe.ingredients.length > 0) {
+        const ingredientsWithRecipeId = recipe.ingredients.map((ingredient, index) => ({
           recipe_id: id,
           name: ingredient.name,
           amount: ingredient.amount,

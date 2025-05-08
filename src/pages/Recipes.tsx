@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -91,7 +90,8 @@ const Recipes = () => {
     setIsSubmitting(true);
     
     try {
-      const result = await recipeService.createRecipe(data, data.ingredients);
+      // Pass data directly (the service will format instructions)
+      const result = await recipeService.createRecipe(data);
       if (result) {
         setIsCreateDialogOpen(false);
         fetchRecipes();
@@ -114,7 +114,8 @@ const Recipes = () => {
     setIsSubmitting(true);
     
     try {
-      const result = await recipeService.updateRecipe(selectedRecipeId, data, data.ingredients);
+      // Pass data directly (the service will format instructions)
+      const result = await recipeService.updateRecipe(selectedRecipeId, data);
       if (result) {
         setIsEditDialogOpen(false);
         fetchRecipes();

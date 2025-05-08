@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -116,20 +115,11 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
     form.setValue("image_url", url);
   };
 
-  // Convert instructions array back to string format for API
+  // Submit the form with instructions in the correct format
   const handleFormSubmit = (data: RecipeFormValues) => {
-    // Format instructions as a string with numbered steps
-    const instructionsString = data.instructions
-      .map((step, index) => `${index + 1}. ${step.content}`)
-      .join("\n");
-    
-    // Create a new object with instructions as a string
-    const formattedData = {
-      ...data,
-      instructions: instructionsString,
-    };
-    
-    onSubmit(formattedData);
+    // We don't convert instructions to string here anymore
+    // Just pass the data directly to onSubmit
+    onSubmit(data);
   };
 
   return (
