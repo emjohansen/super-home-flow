@@ -36,9 +36,12 @@ import {
 
 import {
   unitOptions, 
-  getUnitCategory, 
+  getUnitCategory,
+  getUnitSystem,
   convertUnit, 
+  convertToSystem,
   UnitCategory,
+  UnitSystem,
   scaleAmountByServings,
   formatAmount
 } from "@/utils/unitConversions";
@@ -64,12 +67,7 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
   const [servings, setServings] = useState(recipe.servings || 1);
   
   // For unit conversion
-  const [unitPreference, setUnitPreference] = useState<{
-    [category: string]: string;
-  }>({
-    weight: "g",
-    volume: "ml",
-  });
+  const [unitSystem, setUnitSystem] = useState<UnitSystem | null>(null);
 
   // Parse instructions into steps
   const parseInstructions = (instructions: string | null): { number: number; content: string }[] => {
@@ -105,8 +103,7 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
   // Functions for unit conversion
   const getConvertedAmount = (
     amount: number | null, 
-    unit: string | null, 
-    category: UnitCategory
+    unit: string | null
   ): { amount: string; unit: string } => {
     if (amount === null || !unit) {
       return { amount: "", unit: unit || "" };
@@ -123,32 +120,28 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
       return { amount: "", unit: unit };
     }
     
-    // If there's a unit preference for this category, convert it
-    if (category !== 'count' && unitPreference[category]) {
-      const preferredUnit = unitPreference[category];
-      const convertedAmount = convertUnit(scaledAmount, unit, preferredUnit);
+    // If unit system preference is set, convert to that system
+    if (unitSystem && getUnitSystem(unit) !== 'none') {
+      const converted = convertToSystem(scaledAmount, unit, unitSystem);
       
-      if (convertedAmount !== null) {
+      if (converted !== null) {
         return { 
-          amount: formatAmount(convertedAmount), 
-          unit: preferredUnit 
+          amount: formatAmount(converted.amount), 
+          unit: converted.unit
         };
       }
     }
     
-    // If no conversion possible or needed, return the scaled amount
+    // If no conversion done, return the scaled amount
     return { 
       amount: formatAmount(scaledAmount), 
       unit: unit 
     };
   };
   
-  // Set unit preference for a category
-  const handleUnitPreferenceChange = (category: string, unit: string) => {
-    setUnitPreference(prev => ({
-      ...prev,
-      [category]: unit
-    }));
+  // Reset unit system to show original units
+  const resetUnitSystem = () => {
+    setUnitSystem(null);
   };
 
   return (
@@ -270,59 +263,29 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">Ingredients</h2>
                   
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <ArrowsUpFromLine className="h-4 w-4 mr-2" />
-                        Convert Units
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64">
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <h3 className="font-medium">Weight Units</h3>
-                          <Select 
-                            value={unitPreference.weight} 
-                            onValueChange={(value) => handleUnitPreferenceChange('weight', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {unitOptions
-                                .filter(unit => unit.category === 'weight')
-                                .map(unit => (
-                                  <SelectItem key={unit.value} value={unit.value}>
-                                    {unit.label}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <h3 className="font-medium">Volume Units</h3>
-                          <Select 
-                            value={unitPreference.volume} 
-                            onValueChange={(value) => handleUnitPreferenceChange('volume', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {unitOptions
-                                .filter(unit => unit.category === 'volume')
-                                .map(unit => (
-                                  <SelectItem key={unit.value} value={unit.value}>
-                                    {unit.label}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant={unitSystem === null ? "default" : "outline"} 
+                      size="sm"
+                      onClick={resetUnitSystem}
+                    >
+                      Original
+                    </Button>
+                    <Button 
+                      variant={unitSystem === 'metric' ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setUnitSystem('metric')}
+                    >
+                      Metric
+                    </Button>
+                    <Button 
+                      variant={unitSystem === 'imperial' ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setUnitSystem('imperial')}
+                    >
+                      Imperial
+                    </Button>
+                  </div>
                 </div>
 
                 <Table>
@@ -336,11 +299,9 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
                   <TableBody>
                     {recipe.ingredients?.length > 0 ? (
                       recipe.ingredients.map((ingredient) => {
-                        const category = getUnitCategory(ingredient.unit);
                         const convertedValue = getConvertedAmount(
                           ingredient.amount, 
-                          ingredient.unit, 
-                          category
+                          ingredient.unit
                         );
                         
                         return (
