@@ -69,8 +69,9 @@ export function useRecipeService() {
         created_by: recipe.created_by,
         household_id: recipe.household_id,
         is_public: recipe.is_public || false,
-        meal_type: recipe.meal_type || null,
-        keywords: recipe.keywords || null
+        // Add these fields with default values since they don't exist in the database
+        meal_type: null,
+        keywords: null
       }));
     } catch (error: any) {
       console.error('Error fetching recipes:', error.message);
@@ -110,8 +111,9 @@ export function useRecipeService() {
         created_by: recipe.created_by,
         household_id: recipe.household_id,
         is_public: recipe.is_public || false,
-        meal_type: recipe.meal_type || null,
-        keywords: recipe.keywords || null,
+        // Add these fields with default values
+        meal_type: null,
+        keywords: null,
         ingredients: ingredients || []
       };
     } catch (error: any) {
@@ -178,8 +180,9 @@ export function useRecipeService() {
         created_by: recipe.created_by,
         household_id: recipe.household_id,
         is_public: recipe.is_public || false,
-        meal_type: recipe.meal_type || null,
-        keywords: recipe.keywords || null
+        // Add these fields with default values
+        meal_type: null,
+        keywords: null
       };
     } catch (error: any) {
       console.error('Error creating recipe:', error.message);
@@ -256,8 +259,9 @@ export function useRecipeService() {
         created_by: recipe.created_by,
         household_id: recipe.household_id,
         is_public: recipe.is_public || false,
-        meal_type: recipe.meal_type || null,
-        keywords: recipe.keywords || null
+        // Add these fields with default values
+        meal_type: null,
+        keywords: null
       };
     } catch (error: any) {
       console.error('Error updating recipe:', error.message);
