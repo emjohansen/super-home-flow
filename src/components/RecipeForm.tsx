@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -50,7 +51,8 @@ const recipeSchema = z.object({
       notes: z.string().optional().nullable(),
     })
   ),
-  meal_type: z.string().optional(),
+  // Updated to allow multiple meal types
+  meal_types: z.array(z.string()).optional(),
   keywords: z.array(z.string()).optional(),
 });
 
@@ -78,6 +80,12 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
       .map(content => ({ content }));
   };
 
+  // Transform single meal_type to array for multi-select
+  const getMealTypesArray = (mealType: string | null | undefined): string[] => {
+    if (!mealType) return [];
+    return [mealType];
+  };
+
   const defaultValues: RecipeFormValues = {
     name: recipe?.name || "",
     description: recipe?.description || "",
@@ -92,7 +100,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
       unit: ing.unit,
       notes: ing.notes,
     })) || [{ name: "", amount: null, unit: null, notes: null }],
-    meal_type: recipe?.meal_type || undefined,
+    meal_types: getMealTypesArray(recipe?.meal_type),
     keywords: recipe?.keywords || [],
   };
 
@@ -114,10 +122,24 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
   // Filter out any options with empty values
   const filteredUnitOptions = unitOptions.filter(option => option.value !== "");
 
+  // Transform form data before submission to match API expectations
+  const handleSubmit = async (data: RecipeFormValues) => {
+    // Convert multi-select meal_types array to single meal_type string (first selected)
+    const transformedData = {
+      ...data,
+      meal_type: data.meal_types && data.meal_types.length > 0 ? data.meal_types[0] : null
+    };
+    
+    // Remove meal_types as it's not in the API
+    delete (transformedData as any).meal_types;
+    
+    await onSubmit(transformedData);
+  };
+
   return (
     <div className="space-y-6">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 gap-6">
             <div className="space-y-6">
               <FormField
@@ -152,34 +174,41 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                 )}
               />
 
-              {/* Meal Type Selection */}
-              <FormField
-                control={form.control}
-                name="meal_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Meal Type</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      value={field.value || undefined}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select meal type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {MEAL_TYPES.map(type => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
+              {/* Multi-select Meal Type Selection */}
+              <div>
+                <FormLabel>Meal Type</FormLabel>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2 border rounded-md p-4">
+                  <Controller
+                    control={form.control}
+                    name="meal_types"
+                    render={({ field }) => (
+                      <>
+                        {MEAL_TYPES.map((type) => (
+                          <div key={type.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              checked={(field.value || []).includes(type.value)}
+                              onCheckedChange={(checked) => {
+                                const currentValue = field.value || [];
+                                const updatedValue = checked
+                                  ? [...currentValue, type.value]
+                                  : currentValue.filter((value) => value !== type.value);
+                                field.onChange(updatedValue);
+                              }}
+                              id={`meal-type-${type.value}`}
+                            />
+                            <label
+                              htmlFor={`meal-type-${type.value}`}
+                              className="text-sm cursor-pointer"
+                            >
+                              {type.label}
+                            </label>
+                          </div>
                         ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      </>
+                    )}
+                  />
+                </div>
+              </div>
 
               {/* Keywords Selection */}
               <div>
@@ -330,18 +359,19 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                         {ingredientFields.map((field, index) => (
                           <div
                             key={field.id}
-                            className="p-3 grid grid-cols-12 gap-2 items-center"
+                            className="p-2 grid grid-cols-12 gap-1 items-center"
                           >
                             <div className="col-span-5 md:col-span-4">
                               <FormField
                                 control={form.control}
                                 name={`ingredients.${index}.name`}
                                 render={({ field }) => (
-                                  <FormItem>
+                                  <FormItem className="mb-0">
                                     <FormControl>
                                       <Input
                                         placeholder="Ingredient"
                                         {...field}
+                                        className="h-8 text-sm"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -355,7 +385,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                                 control={form.control}
                                 name={`ingredients.${index}.amount`}
                                 render={({ field }) => (
-                                  <FormItem>
+                                  <FormItem className="mb-0">
                                     <FormControl>
                                       <Input
                                         type="number"
@@ -363,6 +393,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                                         placeholder="Amt"
                                         {...field}
                                         value={field.value ?? ""}
+                                        className="h-8 text-sm"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -376,13 +407,13 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                                 control={form.control}
                                 name={`ingredients.${index}.unit`}
                                 render={({ field }) => (
-                                  <FormItem>
+                                  <FormItem className="mb-0">
                                     <Select
                                       onValueChange={field.onChange}
                                       value={field.value || undefined}
                                     >
                                       <FormControl>
-                                        <SelectTrigger>
+                                        <SelectTrigger className="h-8 text-sm">
                                           <SelectValue placeholder="Unit" />
                                         </SelectTrigger>
                                       </FormControl>
@@ -405,12 +436,13 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                                 control={form.control}
                                 name={`ingredients.${index}.notes`}
                                 render={({ field }) => (
-                                  <FormItem>
+                                  <FormItem className="mb-0">
                                     <FormControl>
                                       <Input
                                         placeholder="Notes"
                                         {...field}
                                         value={field.value ?? ""}
+                                        className="h-8 text-sm"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -425,24 +457,25 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => removeIngredient(index)}
-                                className="h-8 w-8"
+                                className="h-6 w-6"
                               >
                                 <Trash2 className="h-4 w-4 text-red-500" />
                               </Button>
                             </div>
                             
                             {/* Notes field for mobile */}
-                            <div className="col-span-12 md:hidden mt-2">
+                            <div className="col-span-12 md:hidden mt-1">
                               <FormField
                                 control={form.control}
                                 name={`ingredients.${index}.notes`}
                                 render={({ field }) => (
-                                  <FormItem>
+                                  <FormItem className="mb-0">
                                     <FormControl>
                                       <Input
                                         placeholder="Notes"
                                         {...field}
                                         value={field.value ?? ""}
+                                        className="h-8 text-sm"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -464,15 +497,6 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium">Instructions (Step by Step)</h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => appendInstruction({ content: "" })}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Step
-                  </Button>
                 </div>
 
                 <Card>
@@ -484,7 +508,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                     ) : (
                       <div className="divide-y">
                         {instructionFields.map((field, index) => (
-                          <div key={field.id} className="p-4">
+                          <div key={field.id} className="p-3">
                             <div className="flex items-center gap-2 mb-2">
                               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-foodish-500 flex items-center justify-center text-white font-medium">
                                 {index + 1}
@@ -517,12 +541,12 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                               control={form.control}
                               name={`instructions.${index}.content`}
                               render={({ field }) => (
-                                <FormItem>
+                                <FormItem className="mb-0">
                                   <FormControl>
                                     <Textarea
                                       placeholder={`Describe step ${index + 1}...`}
                                       {...field}
-                                      className="min-h-[80px] resize-none"
+                                      className="min-h-[60px] resize-none"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -531,6 +555,19 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                             />
                           </div>
                         ))}
+                        
+                        {/* Add Step button moved to bottom of steps */}
+                        <div className="p-3 flex justify-center">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => appendInstruction({ content: "" })}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add Step
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </CardContent>

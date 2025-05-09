@@ -1,5 +1,6 @@
+
 import React, { useState } from "react";
-import { Clock, Users, Edit, Trash2, Eye, EyeOff, Plus, Minus, X, ChevronLeft } from "lucide-react";
+import { Clock, Users, Edit, Trash2, Eye, EyeOff, Plus, Minus, X, ChevronLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,9 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
   
   // For unit conversion
   const [unitSystem, setUnitSystem] = useState<UnitSystem | null>(null);
+  
+  // For keywords collapse state
+  const [keywordsCollapsed, setKeywordsCollapsed] = useState(false);
 
   // Parse instructions into steps - Improved to handle the format properly
   const parseInstructions = (instructions: string | null): { number: number; content: string }[] => {
@@ -139,23 +143,7 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onTogglePublic}
-              >
-                {recipe.is_public ? (
-                  <>
-                    <EyeOff className="h-4 w-4 mr-2" />
-                    Make Private
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-4 w-4 mr-2" />
-                    Make Public
-                  </>
-                )}
-              </Button>
+              {/* Removed "Make Public" button as requested */}
               <Button
                 variant="destructive"
                 size="sm"
@@ -184,19 +172,44 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
           )}
         </div>
 
-        {/* Badges for meal type and keywords */}
-        <div className="flex flex-wrap gap-2 mb-6">
+        {/* Collapsible Keywords section */}
+        <div className="mb-6">
+          {/* Meal type badges */}
           {recipe.meal_type && (
-            <Badge className="bg-foodish-100 text-foodish-800 border-none">
-              {getMealTypeLabel(recipe.meal_type)}
-            </Badge>
+            <div className="mb-2">
+              <Badge className="bg-foodish-100 text-foodish-800 border-none">
+                {getMealTypeLabel(recipe.meal_type)}
+              </Badge>
+            </div>
           )}
           
-          {recipe.keywords && recipe.keywords.map((keyword, index) => (
-            <Badge key={index} variant="outline">
-              {getKeywordLabel(keyword)}
-            </Badge>
-          ))}
+          {/* Collapsible keywords section */}
+          {recipe.keywords && recipe.keywords.length > 0 && (
+            <div className="space-y-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="flex items-center justify-between w-full p-0 text-left"
+                onClick={() => setKeywordsCollapsed(!keywordsCollapsed)}
+              >
+                <span className="font-medium">Keywords</span>
+                {keywordsCollapsed ? 
+                  <ChevronDown className="h-4 w-4" /> : 
+                  <ChevronUp className="h-4 w-4" />
+                }
+              </Button>
+              
+              {!keywordsCollapsed && (
+                <div className="flex flex-wrap gap-2">
+                  {recipe.keywords.map((keyword, index) => (
+                    <Badge key={index} variant="outline">
+                      {getKeywordLabel(keyword)}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Recipe Meta Info */}
@@ -241,32 +254,34 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold">Ingredients</h2>
-                  <div className="flex gap-1">
-                    <Button 
-                      variant={unitSystem === null ? "default" : "outline"} 
-                      size="sm"
-                      onClick={resetUnitSystem}
-                      className="text-xs h-7 px-2"
-                    >
-                      Original
-                    </Button>
-                    <Button 
-                      variant={unitSystem === 'metric' ? "default" : "outline"} 
-                      size="sm"
-                      onClick={() => setUnitSystem('metric')}
-                      className="text-xs h-7 px-2"
-                    >
-                      Metric
-                    </Button>
-                    <Button 
-                      variant={unitSystem === 'imperial' ? "default" : "outline"} 
-                      size="sm"
-                      onClick={() => setUnitSystem('imperial')}
-                      className="text-xs h-7 px-2"
-                    >
-                      Imperial
-                    </Button>
-                  </div>
+                </div>
+                
+                {/* Moved unit conversion controls below the Ingredients header */}
+                <div className="flex gap-1 mb-4">
+                  <Button 
+                    variant={unitSystem === null ? "default" : "outline"} 
+                    size="sm"
+                    onClick={resetUnitSystem}
+                    className="text-xs h-7 px-2"
+                  >
+                    Original
+                  </Button>
+                  <Button 
+                    variant={unitSystem === 'metric' ? "default" : "outline"} 
+                    size="sm"
+                    onClick={() => setUnitSystem('metric')}
+                    className="text-xs h-7 px-2"
+                  >
+                    Metric
+                  </Button>
+                  <Button 
+                    variant={unitSystem === 'imperial' ? "default" : "outline"} 
+                    size="sm"
+                    onClick={() => setUnitSystem('imperial')}
+                    className="text-xs h-7 px-2"
+                  >
+                    Imperial
+                  </Button>
                 </div>
               
                 {recipe.ingredients?.length > 0 ? (

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHousehold } from '@/contexts/HouseholdContext';
@@ -133,6 +134,13 @@ export function useRecipeService() {
       // Extract ingredients from the form data
       const { ingredients, ...recipeFields } = recipeData;
       
+      // Format instructions to be saved as properly numbered steps
+      if (recipeFields.instructions && Array.isArray(recipeFields.instructions)) {
+        recipeFields.instructions = recipeFields.instructions
+          .map((step: { content: string }, index: number) => `${index + 1}. ${step.content}`)
+          .join('\n');
+      }
+      
       // Create recipe
       const { data: recipe, error: recipeError } = await supabase
         .from('recipes')
@@ -205,6 +213,13 @@ export function useRecipeService() {
       
       // Extract ingredients from the form data
       const { ingredients, ...recipeFields } = recipeData;
+      
+      // Format instructions to be saved as properly numbered steps
+      if (recipeFields.instructions && Array.isArray(recipeFields.instructions)) {
+        recipeFields.instructions = recipeFields.instructions
+          .map((step: { content: string }, index: number) => `${index + 1}. ${step.content}`)
+          .join('\n');
+      }
       
       // Update recipe
       const { data: recipe, error: recipeError } = await supabase
