@@ -68,7 +68,6 @@ export function useRecipeService() {
         created_by: recipe.created_by,
         household_id: recipe.household_id,
         is_public: recipe.is_public || false,
-        // Use actual values if they exist in the database now
         meal_type: recipe.meal_type || null,
         keywords: recipe.keywords || null
       }));
@@ -110,7 +109,6 @@ export function useRecipeService() {
         created_by: recipe.created_by,
         household_id: recipe.household_id,
         is_public: recipe.is_public || false,
-        // Use actual values if they exist in the database now
         meal_type: recipe.meal_type || null,
         keywords: recipe.keywords || null,
         ingredients: ingredients || []
@@ -179,7 +177,6 @@ export function useRecipeService() {
         created_by: recipe.created_by,
         household_id: recipe.household_id,
         is_public: recipe.is_public || false,
-        // Use actual values if they exist in the database now
         meal_type: recipe.meal_type || null,
         keywords: recipe.keywords || null
       };
@@ -258,7 +255,6 @@ export function useRecipeService() {
         created_by: recipe.created_by,
         household_id: recipe.household_id,
         is_public: recipe.is_public || false,
-        // Use actual values if they exist in the database now
         meal_type: recipe.meal_type || null,
         keywords: recipe.keywords || null
       };

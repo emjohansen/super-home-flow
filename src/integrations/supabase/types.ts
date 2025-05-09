@@ -188,6 +188,8 @@ export type Database = {
           image_url: string | null
           instructions: string | null
           is_public: boolean | null
+          keywords: string[] | null
+          meal_type: string | null
           name: string
           prep_time: number | null
           servings: number | null
@@ -203,6 +205,8 @@ export type Database = {
           image_url?: string | null
           instructions?: string | null
           is_public?: boolean | null
+          keywords?: string[] | null
+          meal_type?: string | null
           name: string
           prep_time?: number | null
           servings?: number | null
@@ -218,6 +222,8 @@ export type Database = {
           image_url?: string | null
           instructions?: string | null
           is_public?: boolean | null
+          keywords?: string[] | null
+          meal_type?: string | null
           name?: string
           prep_time?: number | null
           servings?: number | null
