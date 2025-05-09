@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHousehold } from '@/contexts/HouseholdContext';
@@ -69,9 +68,9 @@ export function useRecipeService() {
         created_by: recipe.created_by,
         household_id: recipe.household_id,
         is_public: recipe.is_public || false,
-        // Add these fields with default values since they don't exist in the database
-        meal_type: null,
-        keywords: null
+        // Use actual values if they exist in the database now
+        meal_type: recipe.meal_type || null,
+        keywords: recipe.keywords || null
       }));
     } catch (error: any) {
       console.error('Error fetching recipes:', error.message);
@@ -111,9 +110,9 @@ export function useRecipeService() {
         created_by: recipe.created_by,
         household_id: recipe.household_id,
         is_public: recipe.is_public || false,
-        // Add these fields with default values
-        meal_type: null,
-        keywords: null,
+        // Use actual values if they exist in the database now
+        meal_type: recipe.meal_type || null,
+        keywords: recipe.keywords || null,
         ingredients: ingredients || []
       };
     } catch (error: any) {
@@ -180,9 +179,9 @@ export function useRecipeService() {
         created_by: recipe.created_by,
         household_id: recipe.household_id,
         is_public: recipe.is_public || false,
-        // Add these fields with default values
-        meal_type: null,
-        keywords: null
+        // Use actual values if they exist in the database now
+        meal_type: recipe.meal_type || null,
+        keywords: recipe.keywords || null
       };
     } catch (error: any) {
       console.error('Error creating recipe:', error.message);
@@ -259,9 +258,9 @@ export function useRecipeService() {
         created_by: recipe.created_by,
         household_id: recipe.household_id,
         is_public: recipe.is_public || false,
-        // Add these fields with default values
-        meal_type: null,
-        keywords: null
+        // Use actual values if they exist in the database now
+        meal_type: recipe.meal_type || null,
+        keywords: recipe.keywords || null
       };
     } catch (error: any) {
       console.error('Error updating recipe:', error.message);

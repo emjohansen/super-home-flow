@@ -28,7 +28,19 @@ export const KEYWORDS = [
   { value: 'comfort-food', label: 'Comfort Food' },
   { value: 'family-friendly', label: 'Family Friendly' },
   { value: 'gourmet', label: 'Gourmet' },
-  { value: 'budget-friendly', label: 'Budget Friendly' }
+  { value: 'budget-friendly', label: 'Budget Friendly' },
+  { value: 'high-protein', label: 'High Protein' },
+  { value: 'sugar-free', label: 'Sugar-Free' },
+  { value: 'nut-free', label: 'Nut-Free' },
+  { value: 'egg-free', label: 'Egg-Free' },
+  { value: 'soy-free', label: 'Soy-Free' },
+  { value: 'pescatarian', label: 'Pescatarian' },
+  { value: 'mediterranean', label: 'Mediterranean' },
+  { value: 'asian', label: 'Asian' },
+  { value: 'mexican', label: 'Mexican' },
+  { value: 'italian', label: 'Italian' },
+  { value: 'indian', label: 'Indian' },
+  { value: 'french', label: 'French' }
 ];
 
 export function getKeywordLabel(value: string): string {

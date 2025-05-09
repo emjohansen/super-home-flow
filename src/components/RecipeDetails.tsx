@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Clock, Users, Edit, Trash2, Eye, EyeOff, Plus, Minus, X, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,10 +45,11 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
   // For unit conversion
   const [unitSystem, setUnitSystem] = useState<UnitSystem | null>(null);
 
-  // Parse instructions into steps
+  // Parse instructions into steps - Improved to handle the format properly
   const parseInstructions = (instructions: string | null): { number: number; content: string }[] => {
     if (!instructions) return [];
     
+    // Split by new lines and filter empty ones
     const lines = instructions.split('\n').filter(line => line.trim().length > 0);
     
     return lines.map((line, index) => {

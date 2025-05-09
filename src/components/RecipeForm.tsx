@@ -1,6 +1,5 @@
-
 import React, { useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Plus, Trash2, ArrowUpDown } from "lucide-react";
@@ -24,8 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RecipeWithIngredients } from "@/services/recipeService";
 import { unitOptions } from "@/utils/unitConversions";
+import { MEAL_TYPES, KEYWORDS } from "@/utils/recipeCategories";
 
 // Schema for a single instruction step
 const instructionStepSchema = z.object({
@@ -49,6 +50,8 @@ const recipeSchema = z.object({
       notes: z.string().optional().nullable(),
     })
   ),
+  meal_type: z.string().optional(),
+  keywords: z.array(z.string()).optional(),
 });
 
 type RecipeFormValues = z.infer<typeof recipeSchema>;
@@ -89,6 +92,8 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
       unit: ing.unit,
       notes: ing.notes,
     })) || [{ name: "", amount: null, unit: null, notes: null }],
+    meal_type: recipe?.meal_type || undefined,
+    keywords: recipe?.keywords || [],
   };
 
   const form = useForm<RecipeFormValues>({
@@ -146,6 +151,71 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                   </FormItem>
                 )}
               />
+
+              {/* Meal Type Selection */}
+              <FormField
+                control={form.control}
+                name="meal_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Meal Type</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value || undefined}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select meal type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {MEAL_TYPES.map(type => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Keywords Selection */}
+              <div>
+                <FormLabel>Keywords</FormLabel>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2 border rounded-md p-4">
+                  <Controller
+                    control={form.control}
+                    name="keywords"
+                    render={({ field }) => (
+                      <>
+                        {KEYWORDS.map((keyword) => (
+                          <div key={keyword.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              checked={(field.value || []).includes(keyword.value)}
+                              onCheckedChange={(checked) => {
+                                const currentValue = field.value || [];
+                                const updatedValue = checked
+                                  ? [...currentValue, keyword.value]
+                                  : currentValue.filter((value) => value !== keyword.value);
+                                field.onChange(updatedValue);
+                              }}
+                              id={`keyword-${keyword.value}`}
+                            />
+                            <label
+                              htmlFor={`keyword-${keyword.value}`}
+                              className="text-sm cursor-pointer"
+                            >
+                              {keyword.label}
+                            </label>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  />
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField

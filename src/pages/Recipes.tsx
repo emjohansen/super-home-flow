@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,8 +6,7 @@ import {
   Dialog,
   DialogContent, 
   DialogHeader, 
-  DialogTitle,
-  DialogClose
+  DialogTitle
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -20,7 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -41,8 +38,8 @@ import RecipeForm from '@/components/RecipeForm';
 import RecipeDetails from '@/components/RecipeDetails';
 import { useRecipeService, Recipe } from '@/services/recipeService';
 import { useToast } from '@/hooks/use-toast';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MEAL_TYPES, KEYWORDS, getMealTypeLabel, getKeywordLabel } from '@/utils/recipeCategories';
+import RecipeFilters from '@/components/RecipeFilters';
+import { getMealTypeLabel, getKeywordLabel } from '@/utils/recipeCategories';
 
 const Recipes = () => {
   const { translate } = useLanguage();
@@ -291,88 +288,15 @@ const Recipes = () => {
           />
         </div>
         <div className="flex gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full flex-1">
-                <Filter className="h-4 w-4 mr-2" />
-                Filters {(selectedMealType || selectedKeyword) && <Badge className="ml-2 bg-foodish-500">!</Badge>}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[240px]" align="end">
-              <div className="p-2">
-                <div className="mb-4">
-                  <p className="mb-1 text-sm font-medium">Meal Type</p>
-                  <Select value={selectedMealType || ''} onValueChange={(value) => setSelectedMealType(value || null)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All meal types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All meal types</SelectItem>
-                      {MEAL_TYPES.map(type => (
-                        <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="mb-4">
-                  <p className="mb-1 text-sm font-medium">Keywords</p>
-                  <Select value={selectedKeyword || ''} onValueChange={(value) => setSelectedKeyword(value || null)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All keywords" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All keywords</SelectItem>
-                      {KEYWORDS.map(keyword => (
-                        <SelectItem key={keyword.value} value={keyword.value}>{keyword.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {(selectedMealType || selectedKeyword) && (
-                  <Button variant="outline" className="w-full" onClick={clearFilters}>
-                    Clear Filters
-                  </Button>
-                )}
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <RecipeFilters
+            selectedMealType={selectedMealType}
+            selectedKeyword={selectedKeyword}
+            setSelectedMealType={setSelectedMealType}
+            setSelectedKeyword={setSelectedKeyword}
+            clearFilters={clearFilters}
+          />
         </div>
       </div>
-      
-      {/* Applied Filters Display */}
-      {(selectedMealType || selectedKeyword) && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {selectedMealType && (
-            <Badge variant="secondary" className="flex items-center gap-1">
-              {getMealTypeLabel(selectedMealType)}
-              <button 
-                className="ml-1 hover:bg-gray-200 rounded-full p-0.5" 
-                onClick={() => setSelectedMealType(null)}
-              >
-                ✕
-              </button>
-            </Badge>
-          )}
-          {selectedKeyword && (
-            <Badge variant="secondary" className="flex items-center gap-1">
-              {getKeywordLabel(selectedKeyword)}
-              <button 
-                className="ml-1 hover:bg-gray-200 rounded-full p-0.5" 
-                onClick={() => setSelectedKeyword(null)}
-              >
-                ✕
-              </button>
-            </Badge>
-          )}
-          {(selectedMealType || selectedKeyword) && (
-            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={clearFilters}>
-              Clear all
-            </Button>
-          )}
-        </div>
-      )}
       
       {/* Tabs */}
       <Tabs defaultValue="household" onValueChange={setActiveTab} className="mb-6">
