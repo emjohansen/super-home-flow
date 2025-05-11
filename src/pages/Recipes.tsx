@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,9 +52,9 @@ const Recipes = () => {
   const [activeTab, setActiveTab] = useState('household');
   const [loading, setLoading] = useState(true);
   
-  // Filtering state
-  const [selectedMealType, setSelectedMealType] = useState<string | null>(null);
-  const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
+  // Filtering state - Updated to support multiple selections
+  const [selectedMealTypes, setSelectedMealTypes] = useState<string[]>([]);
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   
   // UI state
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
@@ -79,27 +78,27 @@ const Recipes = () => {
     setLoading(false);
   };
 
-  // Filter recipes based on search query, meal type, and keywords
+  // Filter recipes based on search query, meal types, and keywords
   const filteredRecipes = recipes.filter(recipe => {
     // Text search filter
     const matchesSearch = 
       recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (recipe.description && recipe.description.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    // Meal type filter - Updated to check if the array includes the selected meal type
-    const matchesMealType = !selectedMealType || 
-      (recipe.meal_type && recipe.meal_type.includes(selectedMealType));
+    // Meal type filter - Check if any selected meal type is in the recipe's meal types
+    const matchesMealType = selectedMealTypes.length === 0 || 
+      (recipe.meal_type && recipe.meal_type.some(type => selectedMealTypes.includes(type)));
     
-    // Keyword filter
-    const matchesKeyword = !selectedKeyword || 
-      (recipe.keywords && recipe.keywords.includes(selectedKeyword));
+    // Keyword filter - Check if any selected keyword is in the recipe's keywords
+    const matchesKeyword = selectedKeywords.length === 0 || 
+      (recipe.keywords && recipe.keywords.some(keyword => selectedKeywords.includes(keyword)));
     
     return matchesSearch && matchesMealType && matchesKeyword;
   });
 
   const clearFilters = () => {
-    setSelectedMealType(null);
-    setSelectedKeyword(null);
+    setSelectedMealTypes([]);
+    setSelectedKeywords([]);
   };
 
   // Recipe actions
@@ -297,10 +296,10 @@ const Recipes = () => {
         </div>
         <div className="flex gap-2">
           <RecipeFilters
-            selectedMealType={selectedMealType}
-            selectedKeyword={selectedKeyword}
-            setSelectedMealType={setSelectedMealType}
-            setSelectedKeyword={setSelectedKeyword}
+            selectedMealTypes={selectedMealTypes}
+            selectedKeywords={selectedKeywords}
+            setSelectedMealTypes={setSelectedMealTypes}
+            setSelectedKeywords={setSelectedKeywords}
             clearFilters={clearFilters}
           />
         </div>
