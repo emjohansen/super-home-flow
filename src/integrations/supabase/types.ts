@@ -9,6 +9,114 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      chore_history: {
+        Row: {
+          chore_id: string
+          completed_at: string
+          completed_by: string
+          household_id: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          chore_id: string
+          completed_at?: string
+          completed_by: string
+          household_id: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          chore_id?: string
+          completed_at?: string
+          completed_by?: string
+          household_id?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chore_history_chore_id_fkey"
+            columns: ["chore_id"]
+            isOneToOne: false
+            referencedRelation: "chores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_history_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chores: {
+        Row: {
+          assigned_to: string | null
+          completed: boolean | null
+          completion_date: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          difficulty: number | null
+          due_date: string | null
+          estimated_minutes: number | null
+          household_id: string
+          id: string
+          name: string
+          recurrence: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed?: boolean | null
+          completion_date?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          difficulty?: number | null
+          due_date?: string | null
+          estimated_minutes?: number | null
+          household_id: string
+          id?: string
+          name: string
+          recurrence?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          completed?: boolean | null
+          completion_date?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          difficulty?: number | null
+          due_date?: string | null
+          estimated_minutes?: number | null
+          household_id?: string
+          id?: string
+          name?: string
+          recurrence?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chores_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chores_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       household_members: {
         Row: {
           household_id: string
@@ -459,6 +567,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_recurring_chore: {
+        Args: { p_chore_id: string; p_next_due_date: string }
+        Returns: string
+      }
       find_user_by_email: {
         Args: { search_email: string }
         Returns: {
