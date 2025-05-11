@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Trash2, ArrowUpDown } from "lucide-react";
+import { Plus, Trash2, ArrowUpDown, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -52,7 +52,7 @@ const recipeSchema = z.object({
     })
   ),
   // Updated to allow multiple meal types
-  meal_types: z.array(z.string()).optional(),
+  meal_type: z.array(z.string()).optional(),
   keywords: z.array(z.string()).optional(),
 });
 
@@ -69,21 +69,21 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
   onSubmit,
   isSubmitting,
 }) => {
+  const [isKeywordsCollapsed, setIsKeywordsCollapsed] = useState(true);
+  
   // Parse instructions from string to array of steps
   const parseInstructions = (instructions: string | null | undefined): { content: string }[] => {
     if (!instructions) return [{ content: "" }];
     
-    // Split by new line, filter empty lines, and convert to objects
+    // Split by new line, filter empty lines, and convert to objects without numbering
     return instructions
       .split("\n")
       .filter(line => line.trim().length > 0)
-      .map(content => ({ content }));
-  };
-
-  // Transform single meal_type to array for multi-select
-  const getMealTypesArray = (mealType: string | null | undefined): string[] => {
-    if (!mealType) return [];
-    return [mealType];
+      .map(line => {
+        // Remove any leading numbers (like "1. ", "2. ", etc.)
+        const content = line.replace(/^\d+\.\s*/, '').trim();
+        return { content };
+      });
   };
 
   const defaultValues: RecipeFormValues = {
@@ -100,7 +100,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
       unit: ing.unit,
       notes: ing.notes,
     })) || [{ name: "", amount: null, unit: null, notes: null }],
-    meal_types: getMealTypesArray(recipe?.meal_type),
+    meal_type: recipe?.meal_type || [],
     keywords: recipe?.keywords || [],
   };
 
@@ -124,16 +124,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
 
   // Transform form data before submission to match API expectations
   const handleSubmit = async (data: RecipeFormValues) => {
-    // Convert multi-select meal_types array to single meal_type string (first selected)
-    const transformedData = {
-      ...data,
-      meal_type: data.meal_types && data.meal_types.length > 0 ? data.meal_types[0] : null
-    };
-    
-    // Remove meal_types as it's not in the API
-    delete (transformedData as any).meal_types;
-    
-    await onSubmit(transformedData);
+    await onSubmit(data);
   };
 
   return (
@@ -174,13 +165,13 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                 )}
               />
 
-              {/* Multi-select Meal Type Selection */}
+              {/* Meal Type Selection */}
               <div>
                 <FormLabel>Meal Type</FormLabel>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2 border rounded-md p-4">
                   <Controller
                     control={form.control}
-                    name="meal_types"
+                    name="meal_type"
                     render={({ field }) => (
                       <>
                         {MEAL_TYPES.map((type) => (
@@ -210,43 +201,53 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                 </div>
               </div>
 
-              {/* Keywords Selection */}
+              {/* Keywords Selection - Collapsible */}
               <div>
-                <FormLabel>Keywords</FormLabel>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2 border rounded-md p-4">
-                  <Controller
-                    control={form.control}
-                    name="keywords"
-                    render={({ field }) => (
-                      <>
-                        {KEYWORDS.map((keyword) => (
-                          <div key={keyword.value} className="flex items-center space-x-2">
-                            <Checkbox
-                              checked={(field.value || []).includes(keyword.value)}
-                              onCheckedChange={(checked) => {
-                                const currentValue = field.value || [];
-                                const updatedValue = checked
-                                  ? [...currentValue, keyword.value]
-                                  : currentValue.filter((value) => value !== keyword.value);
-                                field.onChange(updatedValue);
-                              }}
-                              id={`keyword-${keyword.value}`}
-                            />
-                            <label
-                              htmlFor={`keyword-${keyword.value}`}
-                              className="text-sm cursor-pointer"
-                            >
-                              {keyword.label}
-                            </label>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  />
+                <div 
+                  className="flex items-center cursor-pointer" 
+                  onClick={() => setIsKeywordsCollapsed(!isKeywordsCollapsed)}
+                >
+                  <FormLabel className="mb-0 mr-2">Keywords</FormLabel>
+                  {isKeywordsCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
+                
+                {!isKeywordsCollapsed && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2 border rounded-md p-4">
+                    <Controller
+                      control={form.control}
+                      name="keywords"
+                      render={({ field }) => (
+                        <>
+                          {KEYWORDS.map((keyword) => (
+                            <div key={keyword.value} className="flex items-center space-x-2">
+                              <Checkbox
+                                checked={(field.value || []).includes(keyword.value)}
+                                onCheckedChange={(checked) => {
+                                  const currentValue = field.value || [];
+                                  const updatedValue = checked
+                                    ? [...currentValue, keyword.value]
+                                    : currentValue.filter((value) => value !== keyword.value);
+                                  field.onChange(updatedValue);
+                                }}
+                                id={`keyword-${keyword.value}`}
+                              />
+                              <label
+                                htmlFor={`keyword-${keyword.value}`}
+                                className="text-sm cursor-pointer"
+                              >
+                                {keyword.label}
+                              </label>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    />
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Combined Time and Servings in one row */}
+              <div className="grid grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="prep_time"
@@ -284,9 +285,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                     </FormItem>
                   )}
                 />
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="servings"
@@ -305,29 +304,28 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                     </FormItem>
                   )}
                 />
-
-                <FormField
-                  control={form.control}
-                  name="is_public"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col justify-end h-full">
-                      <div className="flex items-center space-x-2">
-                        <FormLabel>Public Recipe</FormLabel>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
+
+              <FormField
+                control={form.control}
+                name="is_public"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Public Recipe</FormLabel>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
               
-              {/* Ingredients section - redesigned to be more compact */}
-              <div className="space-y-4">
+              {/* Ingredients section - Compact redesign */}
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium">Ingredients</h3>
                   <Button
@@ -349,17 +347,17 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                 </div>
 
                 <Card>
-                  <CardContent className="p-0">
+                  <CardContent className="p-2">
                     {ingredientFields.length === 0 ? (
-                      <div className="p-4 text-center text-gray-500">
+                      <div className="p-2 text-center text-gray-500">
                         No ingredients added yet
                       </div>
                     ) : (
-                      <div className="divide-y">
+                      <div className="space-y-1">
                         {ingredientFields.map((field, index) => (
                           <div
                             key={field.id}
-                            className="p-2 grid grid-cols-12 gap-1 items-center"
+                            className="grid grid-cols-12 gap-1 items-center border-b last:border-0 py-1"
                           >
                             <div className="col-span-5 md:col-span-4">
                               <FormField
@@ -371,7 +369,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                                       <Input
                                         placeholder="Ingredient"
                                         {...field}
-                                        className="h-8 text-sm"
+                                        className="h-7 text-sm"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -393,7 +391,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                                         placeholder="Amt"
                                         {...field}
                                         value={field.value ?? ""}
-                                        className="h-8 text-sm"
+                                        className="h-7 text-sm"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -413,7 +411,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                                       value={field.value || undefined}
                                     >
                                       <FormControl>
-                                        <SelectTrigger className="h-8 text-sm">
+                                        <SelectTrigger className="h-7 text-sm">
                                           <SelectValue placeholder="Unit" />
                                         </SelectTrigger>
                                       </FormControl>
@@ -442,7 +440,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                                         placeholder="Notes"
                                         {...field}
                                         value={field.value ?? ""}
-                                        className="h-8 text-sm"
+                                        className="h-7 text-sm"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -464,7 +462,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                             </div>
                             
                             {/* Notes field for mobile */}
-                            <div className="col-span-12 md:hidden mt-1">
+                            <div className="col-span-11 md:hidden mt-1">
                               <FormField
                                 control={form.control}
                                 name={`ingredients.${index}.notes`}
@@ -475,7 +473,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                                         placeholder="Notes"
                                         {...field}
                                         value={field.value ?? ""}
-                                        className="h-8 text-sm"
+                                        className="h-7 text-sm"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -492,9 +490,9 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
               </div>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Step-by-step instructions */}
-              <div className="space-y-4">
+              <div>
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium">Instructions (Step by Step)</h3>
                 </div>
@@ -555,23 +553,23 @@ const RecipeForm: React.FC<RecipeFormProps> = ({
                             />
                           </div>
                         ))}
-                        
-                        {/* Add Step button moved to bottom of steps */}
-                        <div className="p-3 flex justify-center">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => appendInstruction({ content: "" })}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Add Step
-                          </Button>
-                        </div>
                       </div>
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Add Step button moved to below the steps */}
+                <div className="flex justify-center mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => appendInstruction({ content: "" })}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Step
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

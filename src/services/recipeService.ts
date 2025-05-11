@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHousehold } from '@/contexts/HouseholdContext';
@@ -25,7 +24,7 @@ export interface Recipe {
   created_by: string;
   household_id: string | null;
   is_public: boolean;
-  meal_type: string | null;
+  meal_type: string[] | null;
   keywords: string[] | null;
 }
 
@@ -134,10 +133,10 @@ export function useRecipeService() {
       // Extract ingredients from the form data
       const { ingredients, ...recipeFields } = recipeData;
       
-      // Format instructions to be saved as properly numbered steps
+      // Format instructions to be saved as plain text without numbering
       if (recipeFields.instructions && Array.isArray(recipeFields.instructions)) {
         recipeFields.instructions = recipeFields.instructions
-          .map((step: { content: string }, index: number) => `${index + 1}. ${step.content}`)
+          .map((step: { content: string }) => step.content)
           .join('\n');
       }
       
@@ -214,10 +213,10 @@ export function useRecipeService() {
       // Extract ingredients from the form data
       const { ingredients, ...recipeFields } = recipeData;
       
-      // Format instructions to be saved as properly numbered steps
+      // Format instructions to be saved as plain text without numbering
       if (recipeFields.instructions && Array.isArray(recipeFields.instructions)) {
         recipeFields.instructions = recipeFields.instructions
-          .map((step: { content: string }, index: number) => `${index + 1}. ${step.content}`)
+          .map((step: { content: string }) => step.content)
           .join('\n');
       }
       

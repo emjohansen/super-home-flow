@@ -365,7 +365,7 @@ const Recipes = () => {
         </DialogContent>
       </Dialog>
 
-      {/* View Recipe Dialog - Making it fullscreen */}
+      {/* View Recipe Dialog - With Make Public button removed from top */}
       {isViewDialogOpen && selectedRecipe && (
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
           <DialogContent className="max-w-full w-full h-[100vh] m-0 p-0 rounded-none">
