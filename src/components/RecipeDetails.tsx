@@ -175,11 +175,13 @@ const RecipeDetails: React.FC<RecipeDetailsProps> = ({
         {/* Collapsible Keywords section */}
         <div className="mb-6">
           {/* Meal type badges */}
-          {recipe.meal_type && (
+          {recipe.meal_type && recipe.meal_type.length > 0 && (
             <div className="mb-2">
-              <Badge className="bg-foodish-100 text-foodish-800 border-none">
-                {getMealTypeLabel(recipe.meal_type)}
-              </Badge>
+              {recipe.meal_type.map((type, index) => (
+                <Badge key={index} className="bg-foodish-100 text-foodish-800 border-none mr-1">
+                  {getMealTypeLabel(type)}
+                </Badge>
+              ))}
             </div>
           )}
           

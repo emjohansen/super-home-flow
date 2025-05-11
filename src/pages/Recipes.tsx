@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -85,8 +86,9 @@ const Recipes = () => {
       recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (recipe.description && recipe.description.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    // Meal type filter
-    const matchesMealType = !selectedMealType || recipe.meal_type === selectedMealType;
+    // Meal type filter - Updated to check if the array includes the selected meal type
+    const matchesMealType = !selectedMealType || 
+      (recipe.meal_type && recipe.meal_type.includes(selectedMealType));
     
     // Keyword filter
     const matchesKeyword = !selectedKeyword || 
@@ -206,12 +208,18 @@ const Recipes = () => {
           )}
         </div>
         
-        {/* Meal type badge */}
-        {recipe.meal_type && (
+        {/* Meal type badge - Updated to handle multiple meal types */}
+        {recipe.meal_type && recipe.meal_type.length > 0 && (
           <div className="mb-2">
-            <Badge variant="secondary" className="bg-foodish-100 text-foodish-800">
-              {getMealTypeLabel(recipe.meal_type)}
-            </Badge>
+            {recipe.meal_type.map((type, index) => (
+              <Badge 
+                key={index} 
+                variant="secondary" 
+                className="bg-foodish-100 text-foodish-800 mr-1"
+              >
+                {getMealTypeLabel(type)}
+              </Badge>
+            ))}
           </div>
         )}
         
