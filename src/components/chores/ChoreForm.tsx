@@ -33,7 +33,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
-  assigned_to: z.string().optional(),
+  assigned_to: z.string().optional().nullable(),
   due_date: z.string().optional(),
   recurrence: z.string().optional(),
   difficulty: z.number().min(1).max(5),
@@ -68,7 +68,7 @@ export const ChoreForm: React.FC<ChoreFormProps> = ({
     defaultValues: {
       name: initialValues?.name || '',
       description: initialValues?.description || '',
-      assigned_to: initialValues?.assigned_to || '',
+      assigned_to: initialValues?.assigned_to || null,
       due_date: initialValues?.due_date 
         ? format(new Date(initialValues.due_date), 'yyyy-MM-dd')
         : '',
@@ -86,14 +86,16 @@ export const ChoreForm: React.FC<ChoreFormProps> = ({
       household_id: householdId,
       recurrence: isRecurring ? (values.recurrence as Recurrence) : 'once',
       created_by: currentUser.id,
+      // Explicitly set assigned_to to null if it's an empty string or undefined
+      assigned_to: values.assigned_to || null
     };
     
     // Only include due_date if it's provided and we're not skipping it
     if (values.due_date && !skipDueDate) {
       choreData.due_date = new Date(values.due_date).toISOString();
     } else {
-      // Explicitly set to undefined to prevent any previous value from being used
-      choreData.due_date = undefined;
+      // Explicitly set to null to prevent any previous value from being used
+      choreData.due_date = null;
     }
     
     onSubmit(choreData);
@@ -145,7 +147,7 @@ export const ChoreForm: React.FC<ChoreFormProps> = ({
               <FormLabel>Assign To</FormLabel>
               <Select
                 onValueChange={field.onChange}
-                defaultValue={field.value}
+                defaultValue={field.value || undefined}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -153,9 +155,10 @@ export const ChoreForm: React.FC<ChoreFormProps> = ({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  {/* Use a non-empty string value for the unassigned option */}
+                  <SelectItem key="unassigned" value="unassigned">Unassigned</SelectItem>
                   {members.map(member => (
-                    <SelectItem key={member.user_id} value={member.user_id}>
+                    <SelectItem key={member.id} value={member.id}>
                       {member.display_name || 'Household member'}
                     </SelectItem>
                   ))}

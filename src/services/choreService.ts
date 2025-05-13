@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Chore, ChoreHistory, Recurrence, HouseholdMember } from "@/types/chore";
 
@@ -21,52 +22,63 @@ export async function getHouseholdChores(householdId: string): Promise<Chore[]> 
 }
 
 export async function getHouseholdMembers(householdId: string): Promise<HouseholdMember[]> {
-  // First, get all household members
-  const { data: memberData, error: memberError } = await supabase
-    .from("household_members")
-    .select("*")
-    .eq("household_id", householdId);
-
-  if (memberError) {
-    console.error("Error fetching household members:", memberError);
-    throw memberError;
-  }
-
-  // Get all member profiles in a separate query
-  if (memberData && memberData.length > 0) {
-    const userIds = memberData.map(member => member.user_id);
-    
-    const { data: profilesData, error: profilesError } = await supabase
-      .from("profiles")
+  try {
+    // First, get all household members
+    const { data: memberData, error: memberError } = await supabase
+      .from("household_members")
       .select("*")
-      .in("id", userIds);
+      .eq("household_id", householdId);
+
+    if (memberError) {
+      console.error("Error fetching household members:", memberError);
+      throw memberError;
+    }
+
+    // Get all member profiles in a separate query
+    if (memberData && memberData.length > 0) {
+      const userIds = memberData.map(member => member.user_id);
       
-    if (profilesError) {
-      console.error("Error fetching profiles:", profilesError);
-      throw profilesError;
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("id", userIds);
+        
+      if (profilesError) {
+        console.error("Error fetching profiles:", profilesError);
+        throw profilesError;
+      }
+      
+      // Map profiles to members
+      const profilesMap = (profilesData || []).reduce((acc, profile) => {
+        acc[profile.id] = profile;
+        return acc;
+      }, {} as Record<string, any>);
+      
+      // Return members with their profile data
+      return memberData.map(member => ({
+        ...member,
+        display_name: profilesMap[member.user_id]?.display_name || null,
+        avatar_color: profilesMap[member.user_id]?.avatar_color || null
+      }));
     }
     
-    // Map profiles to members
-    const profilesMap = (profilesData || []).reduce((acc, profile) => {
-      acc[profile.id] = profile;
-      return acc;
-    }, {} as Record<string, any>);
-    
-    // Return members with their profile data
-    return memberData.map(member => ({
-      ...member,
-      display_name: profilesMap[member.user_id]?.display_name || null,
-      avatar_color: profilesMap[member.user_id]?.avatar_color || null
-    }));
+    return [];
+  } catch (error) {
+    console.error("Error in getHouseholdMembers:", error);
+    throw error;
   }
-  
-  return [];
 }
 
 export async function createChore(chore: Omit<Chore, "id" | "created_at" | "updated_at">): Promise<Chore> {
   console.log("Creating chore with data:", chore);
   
-  const { data, error } = await supabase.from("chores").insert(chore).select().single();
+  // Handle special case for "unassigned" value
+  const choreToInsert = { ...chore };
+  if (choreToInsert.assigned_to === "unassigned") {
+    choreToInsert.assigned_to = null;
+  }
+  
+  const { data, error } = await supabase.from("chores").insert(choreToInsert).select().single();
 
   if (error) {
     console.error("Error creating chore:", error);
