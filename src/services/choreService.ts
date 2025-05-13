@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Chore, ChoreHistory, Recurrence } from "@/types/chore";
+import { Chore, ChoreHistory, Recurrence, HouseholdMember } from "@/types/chore";
 
 export async function getHouseholdChores(householdId: string): Promise<Chore[]> {
   const { data, error } = await supabase
@@ -21,33 +21,47 @@ export async function getHouseholdChores(householdId: string): Promise<Chore[]> 
   }));
 }
 
-export async function getHouseholdMembers(householdId: string) {
-  const { data, error } = await supabase
+export async function getHouseholdMembers(householdId: string): Promise<HouseholdMember[]> {
+  // First, get all household members
+  const { data: memberData, error: memberError } = await supabase
     .from("household_members")
-    .select(`
-      id,
-      user_id,
-      household_id,
-      role,
-      joined_at,
-      profiles:user_id (
-        display_name,
-        avatar_color
-      )
-    `)
+    .select("*")
     .eq("household_id", householdId);
 
-  if (error) {
-    console.error("Error fetching household members:", error);
-    throw error;
+  if (memberError) {
+    console.error("Error fetching household members:", memberError);
+    throw memberError;
   }
 
-  // Format the returned data to match HouseholdMember interface
-  return (data || []).map((member) => ({
-    ...member,
-    display_name: member.profiles?.display_name,
-    avatar_color: member.profiles?.avatar_color,
-  }));
+  // Get all member profiles in a separate query
+  if (memberData && memberData.length > 0) {
+    const userIds = memberData.map(member => member.user_id);
+    
+    const { data: profilesData, error: profilesError } = await supabase
+      .from("profiles")
+      .select("*")
+      .in("id", userIds);
+      
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError);
+      throw profilesError;
+    }
+    
+    // Map profiles to members
+    const profilesMap = (profilesData || []).reduce((acc, profile) => {
+      acc[profile.id] = profile;
+      return acc;
+    }, {} as Record<string, any>);
+    
+    // Return members with their profile data
+    return memberData.map(member => ({
+      ...member,
+      display_name: profilesMap[member.user_id]?.display_name || null,
+      avatar_color: profilesMap[member.user_id]?.avatar_color || null
+    }));
+  }
+  
+  return [];
 }
 
 export async function createChore(chore: Omit<Chore, "id" | "created_at" | "updated_at">): Promise<Chore> {
