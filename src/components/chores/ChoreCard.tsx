@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, Clock, Edit, Trash2 } from 'lucide-react';
-import { completeChore, deleteChore } from '@/services/choreService';
+import { completeChore, uncompleteChore, deleteChore } from '@/services/choreService';
 import { toast } from 'sonner';
 
 interface ChoreCardProps {
@@ -36,6 +36,17 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
       onUpdate(chore);
     } catch (error) {
       toast.error('Failed to complete chore');
+      console.error(error);
+    }
+  };
+
+  const handleUncomplete = async () => {
+    try {
+      await uncompleteChore(chore, currentUserId);
+      toast.success('Chore marked as pending');
+      onUpdate(chore);
+    } catch (error) {
+      toast.error('Failed to update chore');
       console.error(error);
     }
   };
@@ -95,7 +106,7 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
           </div>
         </div>
         
-        <div className="flex flex-col gap-1 mb-3">
+        <div className="flex flex-col gap-1 mb-2">
           <div className="flex gap-4">
             {chore.due_date && (
               <div className="flex items-center gap-1 text-xs">
@@ -126,37 +137,46 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
           </div>
         </div>
         
-        <div className="flex justify-between gap-1">
-          {!chore.completed && (
+        <div className="flex items-center justify-between gap-1">
+          {!chore.completed ? (
             <Button 
               size="sm" 
-              className="h-7 px-2 text-xs"
+              className="h-7 px-2 text-xs flex-shrink-0"
               onClick={handleComplete}
             >
               <Check className="h-3 w-3 mr-1" />
-              Complete
+              Done
+            </Button>
+          ) : (
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="h-7 px-2 text-xs flex-shrink-0"
+              onClick={handleUncomplete}
+            >
+              Undo
             </Button>
           )}
           
-          <div className="flex gap-1 ml-auto">
+          <div className="flex gap-1 ml-auto flex-shrink-0">
             <Button 
               size="sm" 
-              variant="outline" 
-              className="h-7 px-2 text-xs"
+              variant="ghost" 
+              className="h-7 w-7 p-0"
               onClick={() => onEdit(chore)}
+              title="Edit"
             >
-              <Edit className="h-3 w-3 mr-1" />
-              Edit
+              <Edit className="h-3.5 w-3.5" />
             </Button>
             
             <Button
               size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+              variant="ghost"
+              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
               onClick={handleDelete}
+              title="Delete"
             >
-              <Trash2 className="h-3 w-3 mr-1" />
-              Delete
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>

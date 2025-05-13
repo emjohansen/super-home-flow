@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Chore, ChoreHistory, Recurrence, HouseholdMember } from "@/types/chore";
 
@@ -196,6 +195,40 @@ export async function completeChore(chore: Chore, userId: string): Promise<void>
         throw recurrenceError;
       }
     }
+  }
+}
+
+export async function uncompleteChore(chore: Chore, userId: string): Promise<void> {
+  const now = new Date().toISOString();
+
+  // First mark the chore as uncompleted
+  const { error: updateError } = await supabase
+    .from("chores")
+    .update({
+      completed: false,
+      completion_date: null,
+    })
+    .eq("id", chore.id);
+
+  if (updateError) {
+    console.error("Error uncompleting chore:", updateError);
+    throw updateError;
+  }
+
+  // Then create a history record for the uncomplete action
+  const historyEntry: Omit<ChoreHistory, "id"> = {
+    chore_id: chore.id,
+    completed_by: userId,
+    completed_at: now,
+    household_id: chore.household_id,
+    notes: `Marked as pending by user ${userId}`,
+  };
+
+  const { error: historyError } = await supabase.from("chore_history").insert(historyEntry);
+
+  if (historyError) {
+    console.error("Error creating chore history:", historyError);
+    throw historyError;
   }
 }
 

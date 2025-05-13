@@ -7,8 +7,10 @@ import {
   startOfWeek, 
   startOfMonth, 
   isBefore, 
+  isAfter,
   differenceInDays, 
-  isWithinInterval 
+  isWithinInterval,
+  isSameDay
 } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
 import { PeriodToggle, TimePeriod } from './PeriodToggle';
@@ -23,6 +25,7 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
   choreHistory 
 }) => {
   const [period, setPeriod] = useState<TimePeriod>('week');
+  const [customDate, setCustomDate] = useState<Date | null>(null);
   
   const stats = useMemo(() => {
     const now = new Date();
@@ -36,11 +39,14 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
       case 'week':
         startDate = startOfWeek(now, { weekStartsOn: 1 });
         break;
-      case 'biweekly':
-        startDate = addDays(startOfWeek(now, { weekStartsOn: 1 }), -7);
+      case '14-days':
+        startDate = addDays(startOfDay(now), -14);
         break;
       case 'month':
         startDate = startOfMonth(now);
+        break;
+      case 'custom':
+        startDate = customDate;
         break;
       case 'all':
         // No start date for all time
@@ -55,14 +61,30 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
       if (!startDate) return true; // Include all for 'all' period
       
       const entryDate = new Date(entry.completed_at);
-      return !isBefore(entryDate, startDate);
+      return isAfter(entryDate, startDate) || isSameDay(entryDate, startDate);
     });
     
-    // Calculate statistics
-    const totalChores = chores.length;
-    const completedChores = chores.filter(chore => chore.completed).length;
-    const pendingChores = totalChores - completedChores;
-    const completionRate = totalChores > 0 ? Math.round((completedChores / totalChores) * 100) : 0;
+    // Filter pending chores that are due within the period
+    const pendingChoresInPeriod = chores.filter(chore => {
+      // Only include non-completed chores
+      if (chore.completed) return false;
+      
+      // For "all" period, include all pending chores
+      if (!startDate) return true;
+      
+      // If no due date, include in all periods (as it's always pending)
+      if (!chore.due_date) return true;
+      
+      const dueDate = new Date(chore.due_date);
+      
+      // For day period, only include chores due today
+      if (period === 'day') {
+        return isSameDay(dueDate, now);
+      }
+      
+      // For other periods, include chores due before end of period
+      return !isAfter(dueDate, now);
+    }).length;
     
     // Calculate chores completed during this period
     const completedThisPeriod = recentHistory.length;
@@ -89,23 +111,25 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
     }).length;
     
     return {
-      totalChores,
-      completedChores,
-      pendingChores,
-      completionRate,
+      pendingChoresInPeriod,
       completedThisPeriod,
       dueWithin48Hours,
       overdueChores
     };
-  }, [chores, choreHistory, period]);
+  }, [chores, choreHistory, period, customDate]);
   
   const periodLabel = {
     day: "Today",
     week: "This Week",
-    biweekly: "Last 2 Weeks",
+    '14-days': "Last 14 Days",
     month: "This Month",
+    custom: customDate ? `Since ${customDate.toLocaleDateString()}` : "Custom",
     all: "All Time"
   }[period];
+
+  const handleCustomDateChange = (startDate: Date | null) => {
+    setCustomDate(startDate);
+  };
   
   return (
     <div>
@@ -114,28 +138,19 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
       </div>
       
       <div className="mb-3">
-        <PeriodToggle value={period} onValueChange={setPeriod} />
+        <PeriodToggle 
+          value={period} 
+          onValueChange={setPeriod} 
+          customStartDate={customDate}
+          onCustomDateChange={handleCustomDateChange}
+        />
       </div>
       
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Card>
           <CardContent className="p-3">
             <div className="text-xs text-muted-foreground">Pending</div>
-            <div className="text-2xl font-semibold">{stats.pendingChores}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground">Completed</div>
-            <div className="text-2xl font-semibold">{stats.completedChores}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground">Completion Rate</div>
-            <div className="text-2xl font-semibold">{stats.completionRate}%</div>
+            <div className="text-2xl font-semibold">{stats.pendingChoresInPeriod}</div>
           </CardContent>
         </Card>
         

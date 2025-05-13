@@ -15,9 +15,8 @@ import { toast } from 'sonner';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { PlusCircle } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { PlusCircle, X } from 'lucide-react';
 
 import { ChoreCard } from '@/components/chores/ChoreCard';
 import { ChoreForm } from '@/components/chores/ChoreForm';
@@ -37,7 +36,7 @@ const Chores: React.FC = () => {
   const [choreHistory, setChoreHistory] = useState<ChoreHistoryType[]>([]);
   
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeChore, setActiveChore] = useState<Chore | null>(null);
   
   const [isLoading, setIsLoading] = useState(true);
@@ -192,7 +191,7 @@ const Chores: React.FC = () => {
         )
       );
       
-      setIsEditSheetOpen(false);
+      setIsEditDialogOpen(false);
       setActiveChore(null);
       toast.success('Chore updated successfully');
       
@@ -204,7 +203,7 @@ const Chores: React.FC = () => {
 
   const handleEditChore = (chore: Chore) => {
     setActiveChore(chore);
-    setIsEditSheetOpen(true);
+    setIsEditDialogOpen(true);
   };
 
   const handleDeleteChore = (choreId: string) => {
@@ -233,13 +232,9 @@ const Chores: React.FC = () => {
   }
 
   return (
-    <div className="container max-w-5xl py-4">
-      <div className="flex items-center justify-between mb-4">
+    <div className="container max-w-5xl py-4 pb-20 relative">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold">Household Chores</h1>
-        <Button size="sm" onClick={() => setIsCreateDialogOpen(true)}>
-          <PlusCircle className="h-4 w-4 mr-1" />
-          Add Chore
-        </Button>
       </div>
       
       <ChoreStatistics 
@@ -335,39 +330,72 @@ const Chores: React.FC = () => {
         </CollapsibleSection>
       </div>
       
+      {/* Floating Action Button */}
+      <div className="fixed bottom-6 right-6 z-10">
+        <Button 
+          size="lg" 
+          className="h-14 w-14 rounded-full shadow-lg"
+          onClick={() => setIsCreateDialogOpen(true)}
+        >
+          <PlusCircle className="h-6 w-6" />
+        </Button>
+      </div>
+      
       {/* Create Chore Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Create New Chore</DialogTitle>
-          </DialogHeader>
-          <ChoreForm 
-            onSubmit={handleCreateChore}
-            members={members}
-            householdId={currentHousehold.id}
-          />
+        <DialogContent className="max-w-full h-[100dvh] p-0 gap-0">
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between border-b p-4">
+              <h2 className="text-xl font-bold">Create New Chore</h2>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 p-0" 
+                onClick={() => setIsCreateDialogOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              <ChoreForm 
+                onSubmit={handleCreateChore}
+                members={members}
+                householdId={currentHousehold.id}
+              />
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       
-      {/* Edit Chore Sheet */}
-      <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
-        <SheetContent className="sm:max-w-[500px] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Edit Chore</SheetTitle>
-          </SheetHeader>
+      {/* Edit Chore Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-full h-[100dvh] p-0 gap-0">
           {activeChore && (
-            <div className="py-4">
-              <ChoreForm 
-                onSubmit={handleUpdateChore}
-                initialValues={activeChore}
-                members={members}
-                householdId={currentHousehold.id}
-                isEditing
-              />
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-between border-b p-4">
+                <h2 className="text-xl font-bold">Edit Chore</h2>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 w-8 p-0" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex-1 overflow-auto p-4">
+                <ChoreForm 
+                  onSubmit={handleUpdateChore}
+                  initialValues={activeChore}
+                  members={members}
+                  householdId={currentHousehold.id}
+                  isEditing
+                />
+              </div>
             </div>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
