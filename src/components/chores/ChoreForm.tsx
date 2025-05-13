@@ -27,7 +27,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 
+// Updated schema to make due_date truly optional
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
@@ -59,6 +61,7 @@ export const ChoreForm: React.FC<ChoreFormProps> = ({
   const [isRecurring, setIsRecurring] = useState<boolean>(
     !!initialValues?.recurrence && initialValues.recurrence !== 'once'
   );
+  const [skipDueDate, setSkipDueDate] = useState<boolean>(initialValues?.due_date ? false : true);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -85,9 +88,12 @@ export const ChoreForm: React.FC<ChoreFormProps> = ({
       created_by: currentUser.id,
     };
     
-    // Convert due_date from input format to ISO string if provided
-    if (values.due_date) {
+    // Only include due_date if it's provided and we're not skipping it
+    if (values.due_date && !skipDueDate) {
       choreData.due_date = new Date(values.due_date).toISOString();
+    } else {
+      // Explicitly set to undefined to prevent any previous value from being used
+      choreData.due_date = undefined;
     }
     
     onSubmit(choreData);
@@ -149,7 +155,7 @@ export const ChoreForm: React.FC<ChoreFormProps> = ({
                 <SelectContent>
                   <SelectItem value="">Unassigned</SelectItem>
                   {members.map(member => (
-                    <SelectItem key={member.id} value={member.id}>
+                    <SelectItem key={member.user_id} value={member.user_id}>
                       {member.display_name || 'Household member'}
                     </SelectItem>
                   ))}
@@ -160,19 +166,32 @@ export const ChoreForm: React.FC<ChoreFormProps> = ({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="due_date"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Due Date</FormLabel>
-              <FormControl>
-                <Input type="date" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="flex items-center gap-2 mb-2">
+          <Checkbox 
+            id="skipDueDate" 
+            checked={skipDueDate}
+            onCheckedChange={(checked) => setSkipDueDate(checked as boolean)}
+          />
+          <label htmlFor="skipDueDate" className="text-sm cursor-pointer">
+            No specific due date
+          </label>
+        </div>
+
+        {!skipDueDate && (
+          <FormField
+            control={form.control}
+            name="due_date"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Due Date</FormLabel>
+                <FormControl>
+                  <Input type="date" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <FormItem>
           <div className="flex items-center gap-2">

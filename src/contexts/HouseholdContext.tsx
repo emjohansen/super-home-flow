@@ -313,6 +313,8 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!currentUser) return null;
     
     try {
+      console.log("Adding member with email:", email, "to household:", householdId);
+      
       // First find the user by email
       const { data: userData, error: userError } = await supabase
         .from('profiles')
@@ -321,6 +323,7 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .maybeSingle();
       
       if (userError) {
+        console.error("Error looking up user:", userError);
         if (userError.code === 'PGRST116') {
           toast.error(`No user found with email ${email}`);
           return null;
@@ -329,6 +332,7 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       
       if (!userData) {
+        console.log("No user found with email:", email);
         toast.error(`No user found with email ${email}`);
         return null;
       }
@@ -340,12 +344,18 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .eq('household_id', householdId)
         .eq('user_id', userData.id);
       
-      if (memberCheckError) throw memberCheckError;
+      if (memberCheckError) {
+        console.error("Error checking existing member:", memberCheckError);
+        throw memberCheckError;
+      }
       
       if (existingMember && existingMember.length > 0) {
+        console.log("User is already a member:", email);
         toast.info(`${email} is already a member of this household`);
         return null;
       }
+      
+      console.log("Adding user to household:", userData.id, householdId);
       
       // Add the user as a member
       const { data: memberData, error: memberError } = await supabase
@@ -358,7 +368,10 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .select('*')
         .single();
       
-      if (memberError) throw memberError;
+      if (memberError) {
+        console.error("Error adding member:", memberError);
+        throw memberError;
+      }
       
       const avatarColorValue = userData.avatar_color || '#4A9F41';
       
@@ -371,6 +384,8 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         avatar_color: avatarColorValue,
         avatarColor: avatarColorValue // Add alias for compatibility
       };
+      
+      console.log("New member created:", newMember);
       
       // Update the households state
       setHouseholds(prevHouseholds => 
@@ -443,8 +458,9 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Alias for addMember for compatibility
+  // Define inviteMember as a proper function, not just an alias to addMember
   const inviteMember = async (email: string, householdId: string): Promise<HouseholdMember | null> => {
+    console.log("Inviting member:", email, "to household:", householdId);
     return addMember(householdId, email);
   };
 

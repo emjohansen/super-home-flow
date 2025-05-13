@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Chore, ChoreHistory, Recurrence, HouseholdMember } from "@/types/chore";
 
@@ -65,6 +64,8 @@ export async function getHouseholdMembers(householdId: string): Promise<Househol
 }
 
 export async function createChore(chore: Omit<Chore, "id" | "created_at" | "updated_at">): Promise<Chore> {
+  console.log("Creating chore with data:", chore);
+  
   const { data, error } = await supabase.from("chores").insert(chore).select().single();
 
   if (error) {
@@ -144,6 +145,9 @@ export async function completeChore(chore: Chore, userId: string): Promise<void>
   // If it's a recurring chore, create the next occurrence
   if (chore.recurrence && chore.recurrence !== "once") {
     let nextDueDate: Date | null = null;
+    
+    // If the original chore had a due date, calculate next based on that
+    // Otherwise use current date as reference
     const dueDate = chore.due_date ? new Date(chore.due_date) : new Date();
 
     switch (chore.recurrence) {

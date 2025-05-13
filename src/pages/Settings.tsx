@@ -31,6 +31,7 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [creatingHousehold, setCreatingHousehold] = useState(false);
   const [sending, setSending] = useState(false);
+  const [inviteError, setInviteError] = useState('');
   
   // Handle saving profile
   const handleSaveProfile = async () => {
@@ -77,13 +78,20 @@ const Settings = () => {
       return;
     }
     
+    setInviteError('');
     setSending(true);
+    
     try {
-      await inviteMember(inviteEmail.trim(), currentHousehold.id);
-      toast.success('Invitation sent successfully');
-      setInviteEmail('');
+      const result = await inviteMember(inviteEmail.trim(), currentHousehold.id);
+      if (result) {
+        toast.success('Member added successfully');
+        setInviteEmail('');
+      } else {
+        setInviteError('Could not add member. User may not exist or is already a member.');
+      }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to send invitation');
+      setInviteError(error.message || 'Failed to add member');
+      toast.error(error.message || 'Failed to add member');
     } finally {
       setSending(false);
     }
@@ -246,26 +254,34 @@ const Settings = () => {
                   ))}
                 </div>
                 
-                <div className="flex items-end space-x-2">
-                  <div className="flex-1">
-                    <label htmlFor="inviteEmail" className="block text-sm font-medium mb-1">
-                      {translate('invite')} {translate('members')}
-                    </label>
-                    <Input
-                      id="inviteEmail"
-                      type="email"
-                      placeholder="Email"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                    />
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium mb-1">
+                    {translate('invite')} {translate('members')}
+                  </h4>
+                  <div className="flex items-end space-x-2">
+                    <div className="flex-1">
+                      <Input
+                        id="inviteEmail"
+                        type="email"
+                        placeholder="Email address"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                      />
+                      {inviteError && (
+                        <p className="text-xs text-red-500 mt-1">{inviteError}</p>
+                      )}
+                    </div>
+                    <Button 
+                      onClick={handleInviteMember} 
+                      disabled={sending || !inviteEmail.trim()}
+                      className="bg-foodish-500 hover:bg-foodish-600"
+                    >
+                      {sending ? 'Inviting...' : translate('invite')}
+                    </Button>
                   </div>
-                  <Button 
-                    onClick={handleInviteMember} 
-                    disabled={sending || !inviteEmail.trim()}
-                    className="bg-foodish-500 hover:bg-foodish-600"
-                  >
-                    {sending ? 'Sending...' : translate('invite')}
-                  </Button>
+                  <p className="text-xs text-gray-500">
+                    The user must have an account registered with this email before they can be added.
+                  </p>
                 </div>
               </div>
             </>
