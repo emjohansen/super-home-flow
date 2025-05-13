@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Chore, ChoreHistory } from '@/types/chore';
 import { 
   addDays, 
@@ -26,7 +26,7 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
   
   const stats = useMemo(() => {
     const now = new Date();
-    let startDate: Date;
+    let startDate: Date | null = null;
     
     // Set the start date based on the selected period
     switch (period) {
@@ -42,12 +42,18 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
       case 'month':
         startDate = startOfMonth(now);
         break;
+      case 'all':
+        // No start date for all time
+        startDate = null;
+        break;
       default:
         startDate = startOfWeek(now, { weekStartsOn: 1 });
     }
     
     // Filter history entries that fall within the selected period
     const recentHistory = choreHistory.filter(entry => {
+      if (!startDate) return true; // Include all for 'all' period
+      
       const entryDate = new Date(entry.completed_at);
       return !isBefore(entryDate, startDate);
     });
@@ -97,13 +103,17 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
     day: "Today",
     week: "This Week",
     biweekly: "Last 2 Weeks",
-    month: "This Month"
+    month: "This Month",
+    all: "All Time"
   }[period];
   
   return (
     <div>
-      <div className="flex justify-between items-center mb-2">
+      <div className="flex justify-between items-center mb-3">
         <h2 className="text-lg font-medium">Chore Statistics</h2>
+      </div>
+      
+      <div className="mb-3">
         <PeriodToggle value={period} onValueChange={setPeriod} />
       </div>
       

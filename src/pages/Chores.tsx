@@ -253,6 +253,7 @@ const Chores: React.FC = () => {
           filters={filters}
           onFilterChange={handleFilterChange}
           onResetFilters={resetFilters}
+          hideCompletedFilter={true}
         />
       </div>
       

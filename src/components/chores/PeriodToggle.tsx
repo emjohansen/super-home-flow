@@ -2,7 +2,7 @@
 import React from 'react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
-export type TimePeriod = 'day' | 'week' | 'biweekly' | 'month';
+export type TimePeriod = 'day' | 'week' | 'biweekly' | 'month' | 'all';
 
 interface PeriodToggleProps {
   value: TimePeriod;
@@ -14,7 +14,7 @@ export const PeriodToggle: React.FC<PeriodToggleProps> = ({
   onValueChange
 }) => {
   return (
-    <div className="flex items-center justify-end mb-2">
+    <div className="flex items-center mb-2">
       <span className="text-xs mr-2 text-muted-foreground">Period:</span>
       <ToggleGroup
         type="single"
@@ -28,6 +28,7 @@ export const PeriodToggle: React.FC<PeriodToggleProps> = ({
         <ToggleGroupItem value="week" className="text-xs h-6 px-2">Week</ToggleGroupItem>
         <ToggleGroupItem value="biweekly" className="text-xs h-6 px-2">2 Weeks</ToggleGroupItem>
         <ToggleGroupItem value="month" className="text-xs h-6 px-2">Month</ToggleGroupItem>
+        <ToggleGroupItem value="all" className="text-xs h-6 px-2">All Time</ToggleGroupItem>
       </ToggleGroup>
     </div>
   );

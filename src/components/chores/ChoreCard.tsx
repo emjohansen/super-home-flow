@@ -51,7 +51,7 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
     }
   };
 
-  const assignedMember = members.find(member => member.id === chore.assigned_to);
+  const assignedMember = members.find(member => member.user_id === chore.assigned_to);
   const isOverdue = chore.due_date && isPast(new Date(chore.due_date)) && !chore.completed;
   
   const getDifficultyLabel = (difficulty: number) => {
@@ -127,7 +127,18 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
         </div>
         
         <div className="flex justify-between gap-1">
-          <div className="flex gap-1">
+          {!chore.completed && (
+            <Button 
+              size="sm" 
+              className="h-7 px-2 text-xs"
+              onClick={handleComplete}
+            >
+              <Check className="h-3 w-3 mr-1" />
+              Complete
+            </Button>
+          )}
+          
+          <div className="flex gap-1 ml-auto">
             <Button 
               size="sm" 
               variant="outline" 
@@ -148,17 +159,6 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
               Delete
             </Button>
           </div>
-          
-          {!chore.completed && (
-            <Button 
-              size="sm" 
-              className="h-7 px-2 text-xs"
-              onClick={handleComplete}
-            >
-              <Check className="h-3 w-3 mr-1" />
-              Complete
-            </Button>
-          )}
         </div>
       </CardContent>
     </Card>
