@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Chore, ChoreHistory } from "@/types/chore";
+import { Chore, ChoreHistory, Recurrence } from "@/types/chore";
 
 export async function getHouseholdChores(householdId: string): Promise<Chore[]> {
   const { data, error } = await supabase
@@ -14,7 +14,11 @@ export async function getHouseholdChores(householdId: string): Promise<Chore[]> 
     throw error;
   }
 
-  return data || [];
+  // Transform the data to ensure recurrence is properly typed
+  return (data || []).map(chore => ({
+    ...chore,
+    recurrence: chore.recurrence as Recurrence | undefined
+  }));
 }
 
 export async function getHouseholdMembers(householdId: string) {
@@ -54,7 +58,11 @@ export async function createChore(chore: Omit<Chore, "id" | "created_at" | "upda
     throw error;
   }
 
-  return data;
+  // Ensure the returned data matches the Chore type
+  return {
+    ...data,
+    recurrence: data.recurrence as Recurrence | undefined
+  };
 }
 
 export async function updateChore(id: string, updates: Partial<Chore>): Promise<Chore> {
@@ -70,7 +78,11 @@ export async function updateChore(id: string, updates: Partial<Chore>): Promise<
     throw error;
   }
 
-  return data;
+  // Ensure the returned data matches the Chore type
+  return {
+    ...data,
+    recurrence: data.recurrence as Recurrence | undefined
+  };
 }
 
 export async function deleteChore(id: string): Promise<void> {
