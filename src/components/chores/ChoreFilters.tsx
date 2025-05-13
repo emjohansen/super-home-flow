@@ -25,6 +25,7 @@ interface ChoreFiltersProps {
   filters: ChoreFilterOptions;
   onFilterChange: (name: keyof ChoreFilterOptions, value: any) => void;
   onResetFilters: () => void;
+  hideCompletedFilter?: boolean;
 }
 
 export const ChoreFilters: React.FC<ChoreFiltersProps> = ({
@@ -32,6 +33,7 @@ export const ChoreFilters: React.FC<ChoreFiltersProps> = ({
   filters,
   onFilterChange,
   onResetFilters,
+  hideCompletedFilter = false
 }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
   
@@ -65,7 +67,9 @@ export const ChoreFilters: React.FC<ChoreFiltersProps> = ({
               <SelectContent>
                 <SelectItem value="all">All Chores</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                {!hideCompletedFilter && (
+                  <SelectItem value="completed">Completed</SelectItem>
+                )}
                 <SelectItem value="overdue">Overdue</SelectItem>
               </SelectContent>
             </Select>
