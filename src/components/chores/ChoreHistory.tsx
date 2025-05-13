@@ -16,41 +16,45 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 interface ChoreHistoryProps {
   historyEntries: ChoreHistoryType[];
   memberNames: Record<string, string>;
+  choreNames: Record<string, string>;
 }
 
 export const ChoreHistory: React.FC<ChoreHistoryProps> = ({ 
   historyEntries, 
-  memberNames 
+  memberNames,
+  choreNames
 }) => {
   const [showAll, setShowAll] = useState(false);
   const displayEntries = showAll ? historyEntries : historyEntries.slice(0, 5);
   
   if (historyEntries.length === 0) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
+      <div className="text-center py-4 text-muted-foreground text-sm">
         No chore history yet. Complete some chores to see them here!
       </div>
     );
   }
   
   return (
-    <div>
-      <Table>
+    <div className="w-full overflow-hidden">
+      <Table className="w-full">
         <TableHeader>
           <TableRow>
-            <TableHead>Date Completed</TableHead>
-            <TableHead>Chore</TableHead>
-            <TableHead>Completed By</TableHead>
+            <TableHead className="w-1/3">Date</TableHead>
+            <TableHead className="w-1/3">Chore</TableHead>
+            <TableHead className="w-1/3">Completed By</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {displayEntries.map((entry) => (
-            <TableRow key={entry.id}>
-              <TableCell className="font-medium">
+            <TableRow key={entry.id} className="h-10">
+              <TableCell className="py-2">
                 {format(new Date(entry.completed_at), 'MMM d, yyyy')}
               </TableCell>
-              <TableCell>Chore ID: {entry.chore_id}</TableCell>
-              <TableCell>
+              <TableCell className="py-2">
+                {choreNames[entry.chore_id] || 'Unknown chore'}
+              </TableCell>
+              <TableCell className="py-2">
                 {memberNames[entry.completed_by] || 'Unknown member'}
               </TableCell>
             </TableRow>
@@ -59,21 +63,22 @@ export const ChoreHistory: React.FC<ChoreHistoryProps> = ({
       </Table>
       
       {historyEntries.length > 5 && (
-        <div className="flex justify-center mt-4">
+        <div className="flex justify-center mt-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowAll(!showAll)}
+            className="h-8 text-xs"
           >
             {showAll ? (
               <>
-                <ChevronUp className="h-4 w-4 mr-1" />
+                <ChevronUp className="h-3 w-3 mr-1" />
                 Show Less
               </>
             ) : (
               <>
-                <ChevronDown className="h-4 w-4 mr-1" />
-                Show All ({historyEntries.length} entries)
+                <ChevronDown className="h-3 w-3 mr-1" />
+                Show All ({historyEntries.length})
               </>
             )}
           </Button>

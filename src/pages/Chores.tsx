@@ -17,20 +17,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PlusCircle } from 'lucide-react';
+
 import { ChoreCard } from '@/components/chores/ChoreCard';
 import { ChoreForm } from '@/components/chores/ChoreForm';
 import { ChoreStatistics } from '@/components/chores/ChoreStatistics';
 import { ChoreHistory } from '@/components/chores/ChoreHistory';
 import { ChoreFilters, ChoreFilterOptions } from '@/components/chores/ChoreFilters';
-import { PlusCircle } from 'lucide-react';
+import { CollapsibleSection } from '@/components/chores/CollapsibleSection';
 
 const Chores: React.FC = () => {
   const { currentUser } = useAuth();
   const { currentHousehold } = useHousehold();
   
   const [chores, setChores] = useState<Chore[]>([]);
-  const [filteredChores, setFilteredChores] = useState<Chore[]>([]);
+  const [pendingChores, setPendingChores] = useState<Chore[]>([]);
+  const [completedChores, setCompletedChores] = useState<Chore[]>([]);
   const [members, setMembers] = useState<HouseholdMember[]>([]);
   const [choreHistory, setChoreHistory] = useState<ChoreHistoryType[]>([]);
   
@@ -39,7 +41,6 @@ const Chores: React.FC = () => {
   const [activeChore, setActiveChore] = useState<Chore | null>(null);
   
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>('all');
   
   const [filters, setFilters] = useState<ChoreFilterOptions>({
     status: 'all',
@@ -47,6 +48,18 @@ const Chores: React.FC = () => {
     sortBy: 'dueDate',
     searchQuery: '',
   });
+
+  // Create chore name lookup map for history
+  const choreNameMap = chores.reduce<Record<string, string>>((acc, chore) => {
+    acc[chore.id] = chore.name;
+    return acc;
+  }, {});
+
+  // Create member name lookup for history
+  const memberNameMap = members.reduce<Record<string, string>>((acc, member) => {
+    acc[member.user_id] = member.display_name || 'Household member';
+    return acc;
+  }, {});
 
   useEffect(() => {
     if (currentHousehold?.id) {
@@ -79,46 +92,24 @@ const Chores: React.FC = () => {
 
   useEffect(() => {
     filterAndSortChores();
-  }, [chores, filters, activeTab]);
+  }, [chores, filters]);
 
   const filterAndSortChores = () => {
-    let result = [...chores];
+    let allChores = [...chores];
     
-    // Filter by tab
-    if (activeTab === 'completed') {
-      result = result.filter(chore => chore.completed);
-    } else if (activeTab === 'pending') {
-      result = result.filter(chore => !chore.completed);
-    }
-    
-    // Apply additional filters
-    if (filters.status !== 'all') {
-      if (filters.status === 'completed') {
-        result = result.filter(chore => chore.completed);
-      } else if (filters.status === 'pending') {
-        result = result.filter(chore => !chore.completed);
-      } else if (filters.status === 'overdue') {
-        result = result.filter(chore => 
-          !chore.completed && 
-          chore.due_date && 
-          isPast(new Date(chore.due_date))
-        );
-      }
-    }
-    
-    // Filter by assignee
+    // Apply filters to all chores
     if (filters.assignee) {
       if (filters.assignee === 'unassigned') {
-        result = result.filter(chore => !chore.assigned_to);
+        allChores = allChores.filter(chore => !chore.assigned_to);
       } else {
-        result = result.filter(chore => chore.assigned_to === filters.assignee);
+        allChores = allChores.filter(chore => chore.assigned_to === filters.assignee);
       }
     }
     
     // Filter by search query
     if (filters.searchQuery.trim()) {
       const query = filters.searchQuery.toLowerCase();
-      result = result.filter(
+      allChores = allChores.filter(
         chore => 
           chore.name.toLowerCase().includes(query) || 
           (chore.description && chore.description.toLowerCase().includes(query))
@@ -126,7 +117,7 @@ const Chores: React.FC = () => {
     }
     
     // Sort chores
-    result.sort((a, b) => {
+    allChores.sort((a, b) => {
       if (filters.sortBy === 'name') {
         return a.name.localeCompare(b.name);
       } else if (filters.sortBy === 'difficulty') {
@@ -139,7 +130,21 @@ const Chores: React.FC = () => {
       }
     });
     
-    setFilteredChores(result);
+    // Split into completed and pending
+    const pending = allChores.filter(chore => !chore.completed);
+    const completed = allChores.filter(chore => chore.completed);
+    
+    // Apply status filter only to pending chores if needed
+    if (filters.status === 'overdue') {
+      const overdue = pending.filter(chore => 
+        chore.due_date && isPast(new Date(chore.due_date))
+      );
+      setPendingChores(overdue);
+    } else {
+      setPendingChores(pending);
+    }
+    
+    setCompletedChores(completed);
   };
 
   const handleFilterChange = (name: keyof ChoreFilterOptions, value: any) => {
@@ -211,12 +216,6 @@ const Chores: React.FC = () => {
     fetchChoresData();
   };
 
-  // Create member name lookup for history
-  const memberNameMap = members.reduce<Record<string, string>>((acc, member) => {
-    acc[member.user_id] = member.display_name || 'Household member';
-    return acc;
-  }, {});
-
   if (!currentHousehold) {
     return (
       <Card>
@@ -234,95 +233,110 @@ const Chores: React.FC = () => {
   }
 
   return (
-    <div className="container py-6">
-      <h1 className="text-3xl font-bold mb-4">Household Chores</h1>
+    <div className="container max-w-5xl py-4">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Household Chores</h1>
+        <Button size="sm" onClick={() => setIsCreateDialogOpen(true)}>
+          <PlusCircle className="h-4 w-4 mr-1" />
+          Add Chore
+        </Button>
+      </div>
       
       <ChoreStatistics 
         chores={chores} 
         choreHistory={choreHistory} 
       />
       
-      <div className="flex items-center justify-between my-6">
-        <Tabs 
-          value={activeTab} 
-          onValueChange={setActiveTab}
-          className="w-full max-w-md"
-        >
-          <TabsList>
-            <TabsTrigger value="all">All Chores</TabsTrigger>
-            <TabsTrigger value="pending">Pending</TabsTrigger>
-            <TabsTrigger value="completed">Completed</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <PlusCircle className="h-4 w-4 mr-2" />
-          Add Chore
-        </Button>
+      <div className="my-4">
+        <ChoreFilters 
+          members={members}
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onResetFilters={resetFilters}
+        />
       </div>
       
-      <ChoreFilters 
-        members={members}
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        onResetFilters={resetFilters}
-      />
-      
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {[...Array(3)].map((_, i) => (
-            <Card key={i} className="h-48 animate-pulse" />
-          ))}
-        </div>
-      ) : filteredChores.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {filteredChores.map((chore) => (
-            <ChoreCard 
-              key={chore.id}
-              chore={chore}
-              currentUserId={currentUser?.id || ''}
-              members={members}
-              onUpdate={handleCompleteChore}
-              onEdit={handleEditChore}
-              onDelete={handleDeleteChore}
-            />
+            <Card key={i} className="h-28 animate-pulse" />
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-xl font-medium mb-4">No chores found</p>
-            <p className="text-muted-foreground mb-6 text-center">
-              {activeTab === 'completed' 
-                ? "You haven't completed any chores yet." 
-                : activeTab === 'pending' 
-                  ? "Great job! You have no pending chores." 
-                  : "No chores match your current filters."}
-            </p>
-            {activeTab !== 'pending' && (
-              <Button onClick={() => setIsCreateDialogOpen(true)}>
-                Create Your First Chore
-              </Button>
+        <>
+          <CollapsibleSection 
+            title="Pending Chores" 
+            badge={pendingChores.length}
+            defaultOpen={true}
+          >
+            {pendingChores.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {pendingChores.map((chore) => (
+                  <ChoreCard 
+                    key={chore.id}
+                    chore={chore}
+                    currentUserId={currentUser?.id || ''}
+                    members={members}
+                    onUpdate={handleCompleteChore}
+                    onEdit={handleEditChore}
+                    onDelete={handleDeleteChore}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">
+                {filters.status === 'overdue' 
+                  ? "No overdue chores!" 
+                  : "No pending chores match your filters."}
+              </div>
             )}
-          </CardContent>
-        </Card>
+          </CollapsibleSection>
+          
+          <CollapsibleSection 
+            title="Completed Chores" 
+            badge={completedChores.length}
+            defaultOpen={false}
+          >
+            {completedChores.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {completedChores.map((chore) => (
+                  <ChoreCard 
+                    key={chore.id}
+                    chore={chore}
+                    currentUserId={currentUser?.id || ''}
+                    members={members}
+                    onUpdate={handleCompleteChore}
+                    onEdit={handleEditChore}
+                    onDelete={handleDeleteChore}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">
+                No completed chores yet.
+              </div>
+            )}
+          </CollapsibleSection>
+        </>
       )}
       
-      <div className="mt-8">
-        <h2 className="text-2xl font-semibold mb-4">Chore History</h2>
-        <Card>
-          <CardContent className="p-4">
-            <ChoreHistory 
-              historyEntries={choreHistory}
-              memberNames={memberNameMap}
-            />
-          </CardContent>
-        </Card>
+      <div className="mt-6">
+        <CollapsibleSection title="Chore History" defaultOpen={false}>
+          <Card>
+            <CardContent className="p-3">
+              <ChoreHistory 
+                historyEntries={choreHistory}
+                memberNames={memberNameMap}
+                choreNames={choreNameMap}
+              />
+            </CardContent>
+          </Card>
+        </CollapsibleSection>
       </div>
       
       {/* Create Chore Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Create New Chore</DialogTitle>
           </DialogHeader>
@@ -336,12 +350,12 @@ const Chores: React.FC = () => {
       
       {/* Edit Chore Sheet */}
       <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
-        <SheetContent className="sm:max-w-[600px] overflow-y-auto">
+        <SheetContent className="sm:max-w-[500px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Edit Chore</SheetTitle>
           </SheetHeader>
           {activeChore && (
-            <div className="py-6">
+            <div className="py-4">
               <ChoreForm 
                 onSubmit={handleUpdateChore}
                 initialValues={activeChore}

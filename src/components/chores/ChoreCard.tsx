@@ -5,10 +5,6 @@ import { format, isPast } from 'date-fns';
 import { 
   Card, 
   CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -70,97 +66,101 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
   };
 
   return (
-    <Card className={`transition-all ${chore.completed ? 'bg-gray-100 dark:bg-gray-800 opacity-70' : isOverdue ? 'border-red-500 dark:border-red-400' : ''}`}>
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className={`${chore.completed ? 'line-through text-gray-500' : ''}`}>
+    <Card className={`transition-all ${chore.completed ? 'bg-gray-50 dark:bg-gray-800/50 opacity-80' : isOverdue ? 'border-red-300 dark:border-red-800' : ''}`}>
+      <CardContent className="p-3">
+        <div className="flex justify-between items-start gap-2 mb-2">
+          <div className="flex-1 min-w-0">
+            <h3 className={`font-medium text-sm truncate ${chore.completed ? 'line-through text-muted-foreground' : ''}`}>
               {chore.name}
-            </CardTitle>
-            <CardDescription>
-              {chore.description || 'No description'}
-            </CardDescription>
+            </h3>
+            {chore.description && (
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                {chore.description}
+              </p>
+            )}
           </div>
           
-          {chore.difficulty && (
-            <Badge variant="outline" className="ml-2">
-              {getDifficultyLabel(chore.difficulty)}
-            </Badge>
-          )}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {chore.difficulty && (
+              <Badge variant="outline" className="text-xs h-5 px-1.5">
+                {getDifficultyLabel(chore.difficulty)}
+              </Badge>
+            )}
+            
+            {chore.recurrence && chore.recurrence !== 'once' && (
+              <Badge variant="secondary" className="text-xs h-5 px-1.5 capitalize">
+                {chore.recurrence}
+              </Badge>
+            )}
+          </div>
         </div>
-      </CardHeader>
-      
-      <CardContent className="pb-2">
-        <div className="flex flex-col gap-1">
-          {chore.due_date && (
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4" />
-              <span className={isOverdue ? 'text-red-500 font-medium' : ''}>
-                Due: {format(new Date(chore.due_date), 'PPP')}
-              </span>
-            </div>
-          )}
+        
+        <div className="flex flex-col gap-1 mb-3">
+          <div className="flex gap-4">
+            {chore.due_date && (
+              <div className="flex items-center gap-1 text-xs">
+                <Clock className="h-3 w-3" />
+                <span className={isOverdue ? 'text-red-500 font-medium' : ''}>
+                  {format(new Date(chore.due_date), 'MMM d')}
+                </span>
+              </div>
+            )}
+            
+            {assignedMember && (
+              <div className="text-xs flex items-center gap-1 flex-1">
+                <div 
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: assignedMember.avatar_color || '#888' }}
+                />
+                <span className="truncate">
+                  {assignedMember.display_name || 'Member'}
+                </span>
+              </div>
+            )}
+            
+            {chore.estimated_minutes && (
+              <div className="text-xs text-muted-foreground">
+                {chore.estimated_minutes} min
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex justify-between gap-1">
+          <div className="flex gap-1">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="h-7 px-2 text-xs"
+              onClick={() => onEdit(chore)}
+            >
+              <Edit className="h-3 w-3 mr-1" />
+              Edit
+            </Button>
+            
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-3 w-3 mr-1" />
+              Delete
+            </Button>
+          </div>
           
-          {assignedMember && (
-            <div className="text-sm flex items-center gap-2">
-              <div 
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: assignedMember.avatar_color || '#888' }}
-              />
-              <span>
-                Assigned to: {assignedMember.display_name || 'Household member'}
-              </span>
-            </div>
-          )}
-          
-          {chore.estimated_minutes && (
-            <div className="text-sm">
-              Estimated time: {chore.estimated_minutes} min
-            </div>
-          )}
-          
-          {chore.recurrence && chore.recurrence !== 'once' && (
-            <Badge className="w-fit mt-1">
-              {chore.recurrence.charAt(0).toUpperCase() + chore.recurrence.slice(1)}
-            </Badge>
+          {!chore.completed && (
+            <Button 
+              size="sm" 
+              className="h-7 px-2 text-xs"
+              onClick={handleComplete}
+            >
+              <Check className="h-3 w-3 mr-1" />
+              Complete
+            </Button>
           )}
         </div>
       </CardContent>
-      
-      <CardFooter className="flex justify-between pt-2">
-        <div className="flex gap-2">
-          <Button 
-            size="sm" 
-            variant="outline" 
-            className="h-8"
-            onClick={() => onEdit(chore)}
-          >
-            <Edit className="h-4 w-4 mr-1" />
-            Edit
-          </Button>
-          
-          <Button
-            size="sm"
-            variant="destructive"
-            className="h-8"
-            onClick={handleDelete}
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            Delete
-          </Button>
-        </div>
-        
-        {!chore.completed && (
-          <Button 
-            size="sm" 
-            onClick={handleComplete}
-            className="h-8"
-          >
-            <Check className="h-4 w-4 mr-1" />
-            Complete
-          </Button>
-        )}
-      </CardFooter>
     </Card>
   );
 };
