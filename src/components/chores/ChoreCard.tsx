@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, Clock, Edit, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, Clock, Edit, Trash2, X } from 'lucide-react';
 import { completeChore, uncompleteChore, deleteChore } from '@/services/choreService';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -32,7 +32,6 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
   onDelete,
   isWithinPeriod = true
 }) => {
-  const [expanded, setExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const handleComplete = async () => {
@@ -66,10 +65,6 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
       toast.error('Failed to delete chore');
       console.error(error);
     }
-  };
-
-  const toggleExpanded = () => {
-    setExpanded(!expanded);
   };
 
   const toggleDetails = () => {
@@ -114,29 +109,13 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
         <CardContent className="p-3">
           <div className="flex justify-between items-start gap-2 mb-2">
             <div className="flex-1 min-w-0">
-              <h3 className={`font-medium text-sm ${chore.completed ? 'line-through text-muted-foreground' : ''}`}>
+              <h3 className={`font-medium text-sm ${chore.completed ? 'line-through text-muted-foreground' : ''} line-clamp-2`}>
                 {chore.name}
               </h3>
               {chore.description && (
-                <p className={`text-xs text-muted-foreground ${expanded ? '' : 'line-clamp-1'} mt-0.5`}>
+                <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                   {chore.description}
                 </p>
-              )}
-              {chore.description && (
-                <button 
-                  type="button" 
-                  className="text-xs text-primary flex items-center mt-1"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleExpanded();
-                  }}
-                >
-                  {expanded ? (
-                    <>Less <ChevronUp className="h-3 w-3" /></>
-                  ) : (
-                    <>More <ChevronDown className="h-3 w-3" /></>
-                  )}
-                </button>
               )}
             </div>
             

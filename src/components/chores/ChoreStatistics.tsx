@@ -9,10 +9,10 @@ import {
   isBefore, 
   isAfter,
   isWithinInterval,
-  isSameDay,
   endOfDay,
   endOfWeek,
-  endOfMonth
+  endOfMonth,
+  subDays
 } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
 import { PeriodToggle, TimePeriod } from './PeriodToggle';
@@ -45,7 +45,7 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
         endDate = endOfWeek(now, { weekStartsOn: 1 });
         break;
       case '14-days':
-        startDate = addDays(startOfDay(now), -14);
+        startDate = subDays(now, 14);
         endDate = now;
         break;
       case 'month':
@@ -53,8 +53,13 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
         endDate = endOfMonth(now);
         break;
       case 'custom':
-        startDate = customDate;
-        endDate = now;
+        if (customDate) {
+          startDate = startOfDay(customDate);
+          endDate = endOfDay(now);
+        } else {
+          startDate = startOfWeek(now, { weekStartsOn: 1 });
+          endDate = endOfWeek(now, { weekStartsOn: 1 });
+        }
         break;
       case 'all':
         // No start date for all time
@@ -88,8 +93,11 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
     
     // Filter pending chores that are within the period
     const pendingInPeriod = pendingChores.filter(chore => {
-      // If no due date or all period, include in pending
-      if (!chore.due_date || !startDate) return true;
+      // If no due date, include in pending
+      if (!chore.due_date) return true;
+      
+      // If all period, include all pending
+      if (!startDate) return true;
       
       const dueDate = new Date(chore.due_date);
       
