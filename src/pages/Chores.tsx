@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useHousehold } from '@/contexts/HouseholdContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Chore, ChoreHistory as ChoreHistoryType, HouseholdMember } from '@/types/chore';
@@ -10,7 +10,7 @@ import {
   updateChore,
   getChoreHistory
 } from '@/services/choreService';
-import { isPast } from 'date-fns';
+import { isPast, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays } from 'date-fns';
 import { toast } from 'sonner';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +24,7 @@ import { ChoreStatistics } from '@/components/chores/ChoreStatistics';
 import { ChoreHistory } from '@/components/chores/ChoreHistory';
 import { ChoreFilters, ChoreFilterOptions } from '@/components/chores/ChoreFilters';
 import { CollapsibleSection } from '@/components/chores/CollapsibleSection';
+import { TimePeriod } from '@/components/chores/PeriodToggle';
 
 const Chores: React.FC = () => {
   const { currentUser } = useAuth();
@@ -41,12 +42,55 @@ const Chores: React.FC = () => {
   
   const [isLoading, setIsLoading] = useState(true);
   
+  const [period, setPeriod] = useState<TimePeriod>('week');
+  const [customDate, setCustomDate] = useState<Date | null>(null);
+  
   const [filters, setFilters] = useState<ChoreFilterOptions>({
     status: 'all',
     assignee: '',
     sortBy: 'dueDate',
     searchQuery: '',
   });
+
+  const periodRange = useMemo(() => {
+    const now = new Date();
+    let startDate: Date | null = null;
+    let endDate: Date | null = null;
+    
+    // Set the start and end date based on the selected period
+    switch (period) {
+      case 'day':
+        startDate = startOfDay(now);
+        endDate = endOfDay(now);
+        break;
+      case 'week':
+        startDate = startOfWeek(now, { weekStartsOn: 1 });
+        endDate = endOfWeek(now, { weekStartsOn: 1 });
+        break;
+      case '14-days':
+        startDate = addDays(startOfDay(now), -14);
+        endDate = now;
+        break;
+      case 'month':
+        startDate = startOfMonth(now);
+        endDate = endOfMonth(now);
+        break;
+      case 'custom':
+        startDate = customDate;
+        endDate = now;
+        break;
+      case 'all':
+        // No start date for all time
+        startDate = null;
+        endDate = null;
+        break;
+      default:
+        startDate = startOfWeek(now, { weekStartsOn: 1 });
+        endDate = endOfWeek(now, { weekStartsOn: 1 });
+    }
+    
+    return { startDate, endDate, now };
+  }, [period, customDate]);
 
   // Create chore name lookup map for history
   const choreNameMap = chores.reduce<Record<string, string>>((acc, chore) => {
@@ -91,10 +135,11 @@ const Chores: React.FC = () => {
 
   useEffect(() => {
     filterAndSortChores();
-  }, [chores, filters]);
+  }, [chores, filters, periodRange]);
 
   const filterAndSortChores = () => {
     let allChores = [...chores];
+    const { startDate, endDate, now } = periodRange;
     
     // Apply filters to all chores
     if (filters.assignee) {
@@ -146,6 +191,18 @@ const Chores: React.FC = () => {
     setCompletedChores(completed);
   };
 
+  const isWithinPeriod = (chore: Chore) => {
+    const { startDate, endDate, now } = periodRange;
+    
+    if (!startDate || !chore.due_date) return true;
+    
+    const dueDate = new Date(chore.due_date);
+    return isWithinInterval(dueDate, {
+      start: startDate,
+      end: endDate || now
+    });
+  };
+
   const handleFilterChange = (name: keyof ChoreFilterOptions, value: any) => {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
@@ -157,6 +214,10 @@ const Chores: React.FC = () => {
       sortBy: 'dueDate',
       searchQuery: '',
     });
+  };
+
+  const handleCustomDateChange = (startDate: Date | null) => {
+    setCustomDate(startDate);
   };
 
   const handleCreateChore = async (choreData: Partial<Chore>) => {
@@ -276,6 +337,7 @@ const Chores: React.FC = () => {
                     onUpdate={handleCompleteChore}
                     onEdit={handleEditChore}
                     onDelete={handleDeleteChore}
+                    isWithinPeriod={isWithinPeriod(chore)}
                   />
                 ))}
               </div>
@@ -331,13 +393,13 @@ const Chores: React.FC = () => {
       </div>
       
       {/* Floating Action Button */}
-      <div className="fixed bottom-6 right-6 z-10">
+      <div className="fixed bottom-6 right-6 z-10 mb-[50px]">
         <Button 
           size="lg" 
           className="h-14 w-14 rounded-full shadow-lg"
           onClick={() => setIsCreateDialogOpen(true)}
         >
-          <PlusCircle className="h-6 w-6" />
+          <PlusCircle className="!h-8 !w-8" />
         </Button>
       </div>
       

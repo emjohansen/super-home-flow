@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Chore, ChoreHistory } from '@/types/chore';
 import { 
   addDays, 
@@ -8,9 +8,11 @@ import {
   startOfMonth, 
   isBefore, 
   isAfter,
-  differenceInDays, 
   isWithinInterval,
-  isSameDay
+  isSameDay,
+  endOfDay,
+  endOfWeek,
+  endOfMonth
 } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
 import { PeriodToggle, TimePeriod } from './PeriodToggle';
@@ -27,71 +29,80 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
   const [period, setPeriod] = useState<TimePeriod>('week');
   const [customDate, setCustomDate] = useState<Date | null>(null);
   
-  const stats = useMemo(() => {
+  const periodRange = useMemo(() => {
     const now = new Date();
     let startDate: Date | null = null;
+    let endDate: Date | null = null;
     
-    // Set the start date based on the selected period
+    // Set the start and end date based on the selected period
     switch (period) {
       case 'day':
         startDate = startOfDay(now);
+        endDate = endOfDay(now);
         break;
       case 'week':
         startDate = startOfWeek(now, { weekStartsOn: 1 });
+        endDate = endOfWeek(now, { weekStartsOn: 1 });
         break;
       case '14-days':
         startDate = addDays(startOfDay(now), -14);
+        endDate = now;
         break;
       case 'month':
         startDate = startOfMonth(now);
+        endDate = endOfMonth(now);
         break;
       case 'custom':
         startDate = customDate;
+        endDate = now;
         break;
       case 'all':
         // No start date for all time
         startDate = null;
+        endDate = null;
         break;
       default:
         startDate = startOfWeek(now, { weekStartsOn: 1 });
+        endDate = endOfWeek(now, { weekStartsOn: 1 });
     }
     
+    return { startDate, endDate, now };
+  }, [period, customDate]);
+  
+  const stats = useMemo(() => {
+    const { startDate, endDate, now } = periodRange;
+    
     // Filter history entries that fall within the selected period
-    const recentHistory = choreHistory.filter(entry => {
+    const completedInPeriod = choreHistory.filter(entry => {
       if (!startDate) return true; // Include all for 'all' period
       
       const entryDate = new Date(entry.completed_at);
-      return isAfter(entryDate, startDate) || isSameDay(entryDate, startDate);
-    });
+      return isWithinInterval(entryDate, {
+        start: startDate,
+        end: endDate || now
+      });
+    }).length;
     
-    // Filter pending chores that are due within the period
-    const pendingChoresInPeriod = chores.filter(chore => {
-      // Only include non-completed chores
-      if (chore.completed) return false;
-      
-      // For "all" period, include all pending chores
-      if (!startDate) return true;
-      
-      // If no due date, include in all periods (as it's always pending)
-      if (!chore.due_date) return true;
+    // Get all pending chores (regardless of period)
+    const pendingChores = chores.filter(chore => !chore.completed);
+    
+    // Filter pending chores that are within the period
+    const pendingInPeriod = pendingChores.filter(chore => {
+      // If no due date or all period, include in pending
+      if (!chore.due_date || !startDate) return true;
       
       const dueDate = new Date(chore.due_date);
       
-      // For day period, only include chores due today
-      if (period === 'day') {
-        return isSameDay(dueDate, now);
-      }
-      
-      // For other periods, include chores due before end of period
-      return !isAfter(dueDate, now);
+      // Include if due date is within period
+      return isWithinInterval(dueDate, {
+        start: startDate,
+        end: endDate || now
+      });
     }).length;
     
-    // Calculate chores completed during this period
-    const completedThisPeriod = recentHistory.length;
-    
-    // Find chores at risk (due within 48 hours)
-    const dueWithin48Hours = chores.filter(chore => {
-      if (chore.completed || !chore.due_date) return false;
+    // Find chores due within 48 hours (due soon)
+    const dueSoon = pendingChores.filter(chore => {
+      if (!chore.due_date) return false;
       
       const dueDate = new Date(chore.due_date);
       const twoDaysFromNow = addDays(now, 2);
@@ -103,20 +114,21 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
     }).length;
     
     // Calculate overdue chores
-    const overdueChores = chores.filter(chore => {
-      if (chore.completed || !chore.due_date) return false;
+    const overdue = pendingChores.filter(chore => {
+      if (!chore.due_date) return false;
       
       const dueDate = new Date(chore.due_date);
       return isBefore(dueDate, now);
     }).length;
     
     return {
-      pendingChoresInPeriod,
-      completedThisPeriod,
-      dueWithin48Hours,
-      overdueChores
+      pendingInPeriod,
+      completedInPeriod,
+      dueSoon,
+      overdue,
+      totalPending: pendingChores.length
     };
-  }, [chores, choreHistory, period, customDate]);
+  }, [chores, choreHistory, periodRange]);
   
   const periodLabel = {
     day: "Today",
@@ -146,35 +158,35 @@ export const ChoreStatistics: React.FC<ChoreStatisticsProps> = ({
         />
       </div>
       
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card>
           <CardContent className="p-3">
             <div className="text-xs text-muted-foreground">Pending</div>
-            <div className="text-2xl font-semibold">{stats.pendingChoresInPeriod}</div>
+            <div className="text-2xl font-semibold">{stats.pendingInPeriod}</div>
           </CardContent>
         </Card>
         
         <Card>
           <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground">{periodLabel}</div>
-            <div className="text-2xl font-semibold">{stats.completedThisPeriod}</div>
+            <div className="text-xs text-muted-foreground">{periodLabel} Completed</div>
+            <div className="text-2xl font-semibold">{stats.completedInPeriod}</div>
           </CardContent>
         </Card>
         
-        {stats.overdueChores > 0 && (
+        {stats.overdue > 0 && (
           <Card className="border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800">
             <CardContent className="p-3">
               <div className="text-xs text-red-600 dark:text-red-400">Overdue</div>
-              <div className="text-2xl font-semibold text-red-700 dark:text-red-400">{stats.overdueChores}</div>
+              <div className="text-2xl font-semibold text-red-700 dark:text-red-400">{stats.overdue}</div>
             </CardContent>
           </Card>
         )}
         
-        {stats.dueWithin48Hours > 0 && (
+        {stats.dueSoon > 0 && (
           <Card className="border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800">
             <CardContent className="p-3">
               <div className="text-xs text-amber-600 dark:text-amber-400">Due Soon</div>
-              <div className="text-2xl font-semibold text-amber-700 dark:text-amber-400">{stats.dueWithin48Hours}</div>
+              <div className="text-2xl font-semibold text-amber-700 dark:text-amber-400">{stats.dueSoon}</div>
             </CardContent>
           </Card>
         )}

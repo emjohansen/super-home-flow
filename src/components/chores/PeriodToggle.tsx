@@ -40,18 +40,18 @@ export const PeriodToggle: React.FC<PeriodToggleProps> = ({
         value={value}
         onValueChange={(val) => val && onValueChange(val as TimePeriod)}
         size="sm"
-        variant="outline"
-        className="border rounded-md"
+        variant="default"
+        className="flex flex-wrap justify-start w-full"
       >
-        <ToggleGroupItem value="day" className="text-xs h-6 px-2">Day</ToggleGroupItem>
-        <ToggleGroupItem value="week" className="text-xs h-6 px-2">Week</ToggleGroupItem>
-        <ToggleGroupItem value="14-days" className="text-xs h-6 px-2">14-days</ToggleGroupItem>
-        <ToggleGroupItem value="month" className="text-xs h-6 px-2">Month</ToggleGroupItem>
-        <ToggleGroupItem value="all" className="text-xs h-6 px-2">All Time</ToggleGroupItem>
+        <ToggleGroupItem value="day" className="text-xs h-6 px-2 m-0.5 rounded">Day</ToggleGroupItem>
+        <ToggleGroupItem value="week" className="text-xs h-6 px-2 m-0.5 rounded">Week</ToggleGroupItem>
+        <ToggleGroupItem value="14-days" className="text-xs h-6 px-2 m-0.5 rounded">14-days</ToggleGroupItem>
+        <ToggleGroupItem value="month" className="text-xs h-6 px-2 m-0.5 rounded">Month</ToggleGroupItem>
+        <ToggleGroupItem value="all" className="text-xs h-6 px-2 m-0.5 rounded">All Time</ToggleGroupItem>
         
         <Popover>
           <PopoverTrigger asChild>
-            <ToggleGroupItem value="custom" className="text-xs h-6 px-2">
+            <ToggleGroupItem value="custom" className="text-xs h-6 px-2 m-0.5 rounded">
               <Calendar className="h-3 w-3 mr-1" />
               Custom
             </ToggleGroupItem>
