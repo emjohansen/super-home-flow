@@ -315,34 +315,29 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       console.log("Adding member with email:", email, "to household:", householdId);
       
-      // First find the user by email
+      // Use the secure function to find user by email
       const { data: userData, error: userError } = await supabase
-        .from('profiles')
-        .select('id, email, display_name, avatar_color')
-        .eq('email', email)
-        .maybeSingle();
+        .rpc('find_user_by_email', { search_email: email });
       
       if (userError) {
         console.error("Error looking up user:", userError);
-        if (userError.code === 'PGRST116') {
-          toast.error(`No user found with email ${email}`);
-          return null;
-        }
         throw userError;
       }
       
-      if (!userData) {
+      if (!userData || userData.length === 0) {
         console.log("No user found with email:", email);
-        toast.error(`No user found with email ${email}`);
-        return null;
+        throw new Error(`No user found with email ${email}. The user must register first.`);
       }
+      
+      const user = userData[0];
+      console.log("Found user:", user);
       
       // Check if the user is already a member
       const { data: existingMember, error: memberCheckError } = await supabase
         .from('household_members')
         .select('*')
         .eq('household_id', householdId)
-        .eq('user_id', userData.id);
+        .eq('user_id', user.id);
       
       if (memberCheckError) {
         console.error("Error checking existing member:", memberCheckError);
@@ -351,18 +346,17 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       
       if (existingMember && existingMember.length > 0) {
         console.log("User is already a member:", email);
-        toast.info(`${email} is already a member of this household`);
-        return null;
+        throw new Error(`${email} is already a member of this household`);
       }
       
-      console.log("Adding user to household:", userData.id, householdId);
+      console.log("Adding user to household:", user.id, householdId);
       
       // Add the user as a member
       const { data: memberData, error: memberError } = await supabase
         .from('household_members')
         .insert([{
           household_id: householdId,
-          user_id: userData.id,
+          user_id: user.id,
           role: 'member'
         }])
         .select('*')
@@ -373,13 +367,24 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         throw memberError;
       }
       
-      const avatarColorValue = userData.avatar_color || '#4A9F41';
+      // Get profile data for the new member
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('display_name, email, avatar_color')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('Error fetching profile for new member:', profileError);
+      }
+      
+      const avatarColorValue = profileData?.avatar_color || '#4A9F41';
       
       const newMember: HouseholdMember = {
         id: memberData.id,
         user_id: memberData.user_id,
         role: memberData.role,
-        displayName: userData.display_name || email.split('@')[0],
+        displayName: profileData?.display_name || email.split('@')[0],
         email: email,
         avatar_color: avatarColorValue,
         avatarColor: avatarColorValue // Add alias for compatibility
@@ -412,7 +417,7 @@ export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return newMember;
     } catch (error: any) {
       console.error('Error adding member:', error);
-      toast.error(`Failed to add member: ${error.message}`);
+      toast.error(error.message || 'Failed to add member');
       return null;
     }
   };
