@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Chore, HouseholdMember } from '@/types/chore';
-import { format, isPast } from 'date-fns';
+import { format, isPast, isToday, isTomorrow } from 'date-fns';
 import { 
   Card, 
   CardContent, 
@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Check, Clock, Edit, Trash2, X } from 'lucide-react';
 import { completeChore, uncompleteChore, deleteChore } from '@/services/choreService';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface ChoreCardProps {
   chore: Chore;
@@ -72,7 +72,18 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
   };
 
   const assignedMember = members.find(member => member.user_id === chore.assigned_to);
-  const isOverdue = chore.due_date && isPast(new Date(chore.due_date)) && !chore.completed;
+  
+  const getChoreStatus = () => {
+    if (chore.completed) return 'completed';
+    if (!chore.due_date) return 'normal';
+    
+    const dueDate = new Date(chore.due_date);
+    if (isPast(dueDate) && !isToday(dueDate)) return 'overdue';
+    if (isToday(dueDate) || isTomorrow(dueDate)) return 'due-soon';
+    return 'normal';
+  };
+
+  const status = getChoreStatus();
   
   const getDifficultyLabel = (difficulty: number) => {
     switch(difficulty) {
@@ -86,14 +97,18 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
   };
 
   const cardClass = () => {
-    let baseClass = "transition-all";
+    let baseClass = "transition-all cursor-pointer";
     
     if (chore.completed) {
       return `${baseClass} bg-gray-50 dark:bg-gray-800/50 opacity-80`;
     }
     
-    if (isOverdue) {
-      return `${baseClass} border-red-300 dark:border-red-800`;
+    if (status === 'overdue') {
+      return `${baseClass} border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/10`;
+    }
+    
+    if (status === 'due-soon') {
+      return `${baseClass} border-yellow-300 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/10`;
     }
     
     if (!isWithinPeriod) {
@@ -107,19 +122,12 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
     <>
       <Card className={cardClass()} onClick={toggleDetails}>
         <CardContent className="p-3">
-          <div className="flex justify-between items-start gap-2 mb-2">
-            <div className="flex-1 min-w-0">
-              <h3 className={`font-medium text-sm ${chore.completed ? 'line-through text-muted-foreground' : ''} line-clamp-2`}>
-                {chore.name}
-              </h3>
-              {chore.description && (
-                <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                  {chore.description}
-                </p>
-              )}
-            </div>
+          <div className="mb-2">
+            <h3 className={`font-medium text-sm w-full ${chore.completed ? 'line-through text-muted-foreground' : ''} line-clamp-2 mb-1`}>
+              {chore.name}
+            </h3>
             
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex gap-1 mb-2">
               {chore.difficulty && (
                 <Badge variant="outline" className="text-xs h-5 px-1.5">
                   {getDifficultyLabel(chore.difficulty)}
@@ -132,6 +140,12 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
                 </Badge>
               )}
             </div>
+            
+            {chore.description && (
+              <p className="text-xs text-muted-foreground line-clamp-1 mb-2">
+                {chore.description}
+              </p>
+            )}
           </div>
           
           <div className="flex flex-col gap-1 mb-2">
@@ -139,7 +153,7 @@ export const ChoreCard: React.FC<ChoreCardProps> = ({
               {chore.due_date && (
                 <div className="flex items-center gap-1 text-xs">
                   <Clock className="h-3 w-3" />
-                  <span className={isOverdue ? 'text-red-500 font-medium' : ''}>
+                  <span className={status === 'overdue' ? 'text-red-500 font-medium' : status === 'due-soon' ? 'text-yellow-600 font-medium' : ''}>
                     {format(new Date(chore.due_date), 'MMM d')}
                   </span>
                 </div>

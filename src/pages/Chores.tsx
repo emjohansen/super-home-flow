@@ -10,7 +10,7 @@ import {
   updateChore,
   getChoreHistory
 } from '@/services/choreService';
-import { isPast, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays } from 'date-fns';
+import { isPast, isToday } from 'date-fns';
 import { toast } from 'sonner';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +24,6 @@ import { ChoreStatistics } from '@/components/chores/ChoreStatistics';
 import { ChoreHistory } from '@/components/chores/ChoreHistory';
 import { ChoreFilters, ChoreFilterOptions } from '@/components/chores/ChoreFilters';
 import { CollapsibleSection } from '@/components/chores/CollapsibleSection';
-import { TimePeriod } from '@/components/chores/PeriodToggle';
 
 const Chores: React.FC = () => {
   const { currentUser } = useAuth();
@@ -42,55 +41,12 @@ const Chores: React.FC = () => {
   
   const [isLoading, setIsLoading] = useState(true);
   
-  const [period, setPeriod] = useState<TimePeriod>('week');
-  const [customDate, setCustomDate] = useState<Date | null>(null);
-  
   const [filters, setFilters] = useState<ChoreFilterOptions>({
     status: 'all',
     assignee: '',
     sortBy: 'dueDate',
     searchQuery: '',
   });
-
-  const periodRange = useMemo(() => {
-    const now = new Date();
-    let startDate: Date | null = null;
-    let endDate: Date | null = null;
-    
-    // Set the start and end date based on the selected period
-    switch (period) {
-      case 'day':
-        startDate = startOfDay(now);
-        endDate = endOfDay(now);
-        break;
-      case 'week':
-        startDate = startOfWeek(now, { weekStartsOn: 1 });
-        endDate = endOfWeek(now, { weekStartsOn: 1 });
-        break;
-      case '14-days':
-        startDate = addDays(startOfDay(now), -14);
-        endDate = now;
-        break;
-      case 'month':
-        startDate = startOfMonth(now);
-        endDate = endOfMonth(now);
-        break;
-      case 'custom':
-        startDate = customDate;
-        endDate = now;
-        break;
-      case 'all':
-        // No start date for all time
-        startDate = null;
-        endDate = null;
-        break;
-      default:
-        startDate = startOfWeek(now, { weekStartsOn: 1 });
-        endDate = endOfWeek(now, { weekStartsOn: 1 });
-    }
-    
-    return { startDate, endDate, now };
-  }, [period, customDate]);
 
   // Create chore name lookup map for history
   const choreNameMap = chores.reduce<Record<string, string>>((acc, chore) => {
@@ -135,11 +91,10 @@ const Chores: React.FC = () => {
 
   useEffect(() => {
     filterAndSortChores();
-  }, [chores, filters, periodRange]);
+  }, [chores, filters]);
 
   const filterAndSortChores = () => {
     let allChores = [...chores];
-    const { startDate, endDate, now } = periodRange;
     
     // Apply filters to all chores
     if (filters.assignee) {
@@ -181,7 +136,7 @@ const Chores: React.FC = () => {
     // Apply status filter only to pending chores if needed
     if (filters.status === 'overdue') {
       const overdue = pending.filter(chore => 
-        chore.due_date && isPast(new Date(chore.due_date))
+        chore.due_date && isPast(new Date(chore.due_date)) && !isToday(new Date(chore.due_date))
       );
       setPendingChores(overdue);
     } else {
@@ -189,18 +144,6 @@ const Chores: React.FC = () => {
     }
     
     setCompletedChores(completed);
-  };
-
-  const isWithinPeriod = (chore: Chore) => {
-    const { startDate, endDate, now } = periodRange;
-    
-    if (!startDate || !chore.due_date) return true;
-    
-    const dueDate = new Date(chore.due_date);
-    return isWithinInterval(dueDate, {
-      start: startDate,
-      end: endDate || now
-    });
   };
 
   const handleFilterChange = (name: keyof ChoreFilterOptions, value: any) => {
@@ -214,10 +157,6 @@ const Chores: React.FC = () => {
       sortBy: 'dueDate',
       searchQuery: '',
     });
-  };
-
-  const handleCustomDateChange = (startDate: Date | null) => {
-    setCustomDate(startDate);
   };
 
   const handleCreateChore = async (choreData: Partial<Chore>) => {
@@ -294,7 +233,7 @@ const Chores: React.FC = () => {
 
   return (
     <div className="container max-w-5xl py-4 pb-20 relative">
-      <div className="mb-4">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold">Household Chores</h1>
       </div>
       
@@ -337,7 +276,6 @@ const Chores: React.FC = () => {
                     onUpdate={handleCompleteChore}
                     onEdit={handleEditChore}
                     onDelete={handleDeleteChore}
-                    isWithinPeriod={isWithinPeriod(chore)}
                   />
                 ))}
               </div>
